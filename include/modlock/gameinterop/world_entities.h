@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "modlock/export.h"
@@ -20,6 +21,21 @@ class NativeDamage;
 // Resolve and all operations run on the engine thread after world initialization.
 class MODLOCK_API WorldEntities {
  public:
+  // Calls binds the native entity lifecycle and resolved schema offsets. Native
+  // interfaces and schema storage must outlive this engine-thread adapter.
+  struct Calls {
+    std::expected<void*, std::string> (*entity_system)() = nullptr;
+    void* schema = nullptr;
+    KeyValuesCalls key_values;
+    void* (*create)(void*, const char*, int) = nullptr;
+    void (*queue)(void*, void*, void*) = nullptr;
+    void (*execute)(void*) = nullptr;
+    void (*remove)(void*) = nullptr;
+    void* (*definition)(int32_t, uint32_t) = nullptr;
+    std::array<size_t, 7> offsets{};
+  };
+  explicit WorldEntities(Calls calls) : calls_(std::move(calls)) {}
+
   struct Target {
     std::string designer_name;
     uint32_t subclass_id;
@@ -65,14 +81,7 @@ class MODLOCK_API WorldEntities {
   std::expected<Sample, std::string> ReadEntity(void* entity, std::string name) const;
   std::expected<void*, std::string> Create(const Target& target);
   std::expected<void, std::string> Apply(void* entity, const Target& target) const;
-  void* schema_ = nullptr;
-  KeyValuesCalls key_values_;
-  void* (*create_)(void*, const char*, int) = nullptr;
-  void (*queue_)(void*, void*, void*) = nullptr;
-  void (*execute_)(void*) = nullptr;
-  void (*remove_)(void*) = nullptr;
-  void* (*definition_)(int32_t, uint32_t) = nullptr;
-  std::array<size_t, 7> offsets_{};
+  Calls calls_;
   std::vector<Sample> pending_;
 };
 

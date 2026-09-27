@@ -77,28 +77,29 @@ float DistanceSquared(const std::array<float, 3>& a, const std::array<float, 3>&
 
 std::expected<WorldEntities, std::string> WorldEntities::Resolve(const ModuleImage& server,
                                                                  void* schema_system) {
-  WorldEntities world;
-  world.schema_ = schema_system;
+  WorldEntities world({});
+  world.calls_.entity_system = &ResolveLiveEntitySystem;
+  world.calls_.schema = schema_system;
   auto key_values = ResolveKeyValuesCalls(server);
   if (!key_values) return std::unexpected(key_values.error());
-  world.key_values_ = *key_values;
+  world.calls_.key_values = *key_values;
   for (const auto& probe : EntitySystemProbes()) {
     auto address = ResolveScannedSymbol(server, probe.id, probe.pattern);
     if (!address) return std::unexpected(address.error());
     if (probe.id == "entity-system.create-entity-by-name")
-      world.create_ = reinterpret_cast<decltype(world.create_)>(*address);
+      world.calls_.create = reinterpret_cast<decltype(world.calls_.create)>(*address);
     if (probe.id == "entity-system.queue-spawn-entity")
-      world.queue_ = reinterpret_cast<decltype(world.queue_)>(*address);
+      world.calls_.queue = reinterpret_cast<decltype(world.calls_.queue)>(*address);
     if (probe.id == "entity-system.execute-queued-creation")
-      world.execute_ = reinterpret_cast<decltype(world.execute_)>(*address);
+      world.calls_.execute = reinterpret_cast<decltype(world.calls_.execute)>(*address);
   }
   auto remove = ResolveScannedSymbol(server, "util.remove", "48 85 C9 74 ? 48 8B D1 48 8B 0D");
   if (!remove) return std::unexpected(remove.error());
-  world.remove_ = reinterpret_cast<decltype(world.remove_)>(*remove);
+  world.calls_.remove = reinterpret_cast<decltype(world.calls_.remove)>(*remove);
   auto definition = ResolveScannedSymbol(server, "world.lookup-vdata-by-hash",
                                          "40 53 48 83 EC ?? 89 54 24 ?? 8B D9");
   if (!definition) return std::unexpected(definition.error());
-  world.definition_ = reinterpret_cast<decltype(world.definition_)>(*definition);
+  world.calls_.definition = reinterpret_cast<decltype(world.calls_.definition)>(*definition);
   struct Field {
     const char* owner;
     const char* name;
@@ -111,12 +112,12 @@ std::expected<WorldEntities, std::string> WorldEntities::Resolve(const ModuleIma
                           {"CBaseEntity", "m_CBodyComponent", sizeof(void*)},
                           {"CBodyComponent", "m_pSceneNode", sizeof(void*)},
                           {"CGameSceneNode", "m_vecAbsOrigin", sizeof(float) * 3}};
-  for (size_t i = 0; i < world.offsets_.size(); ++i) {
+  for (size_t i = 0; i < world.calls_.offsets.size(); ++i) {
     auto field = SchemaFieldOf(schema_system, "server.dll", fields[i].owner, fields[i].name);
     if (!field) return std::unexpected(field.error());
     if (field->size < fields[i].width)
       return std::unexpected(std::string("NPC field storage too short: ") + fields[i].name);
-    world.offsets_[i] = field->offset;
+    world.calls_.offsets[i] = field->offset;
   }
   return world;
 }
@@ -125,19 +126,19 @@ std::expected<WorldEntities::Sample, std::string> WorldEntities::ReadEntity(
     void* entity, std::string name) const {
   const auto handle = ReferenceHandleOf(entity);
   if (!handle) return std::unexpected("NPC identity is no longer live");
-  void* body = ReadAt<void*>(entity, offsets_[4]);
+  void* body = ReadAt<void*>(entity, calls_.offsets[4]);
   if (!body) return std::unexpected("NPC body is absent");
-  void* scene = ReadAt<void*>(body, offsets_[5]);
+  void* scene = ReadAt<void*>(body, calls_.offsets[5]);
   if (!scene) return std::unexpected("NPC scene is absent");
   Target state{};
   state.designer_name = std::move(name);
-  state.subclass_id = ReadAt<uint32_t>(entity, offsets_[1]);
-  state.team = ReadAt<uint8_t>(entity, offsets_[0]);
-  state.position = ReadAt<std::array<float, 3>>(scene, offsets_[6]);
-  state.health = ReadAt<int32_t>(entity, offsets_[2]);
-  state.max_health = ReadAt<int32_t>(entity, offsets_[3]);
+  state.subclass_id = ReadAt<uint32_t>(entity, calls_.offsets[1]);
+  state.team = ReadAt<uint8_t>(entity, calls_.offsets[0]);
+  state.position = ReadAt<std::array<float, 3>>(scene, calls_.offsets[6]);
+  state.health = ReadAt<int32_t>(entity, calls_.offsets[2]);
+  state.max_health = ReadAt<int32_t>(entity, calls_.offsets[3]);
   if (const auto* owner = LaneClass(state.designer_name)) {
-    auto lane = SchemaFieldOf(schema_, "server.dll", owner, "m_iLane");
+    auto lane = SchemaFieldOf(calls_.schema, "server.dll", owner, "m_iLane");
     if (!lane || lane->size < sizeof(uint32_t)) return std::unexpected("trooper lane unavailable");
     state.lane = ReadAt<uint32_t>(entity, lane->offset);
   }
@@ -145,7 +146,7 @@ std::expected<WorldEntities::Sample, std::string> WorldEntities::ReadEntity(
 }
 
 std::expected<std::vector<WorldEntities::Sample>, std::string> WorldEntities::Read() const {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   std::vector<Sample> result;
   for (void* entity : EntityInstances(*system)) {
@@ -166,29 +167,29 @@ std::expected<void, std::string> WorldEntities::Apply(void* entity, const Target
 }
 
 std::expected<void*, std::string> WorldEntities::Create(const Target& target) {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
-  void* definition = target.subclass_id ? definition_(-1, target.subclass_id) : nullptr;
+  void* definition = target.subclass_id ? calls_.definition(-1, target.subclass_id) : nullptr;
   if (target.subclass_id && !definition)
     return std::unexpected("entity subclass is absent from this game build");
-  void* entity = create_(nullptr, target.designer_name.c_str(), -1);
+  void* entity = calls_.create(nullptr, target.designer_name.c_str(), -1);
   if (!entity) return std::unexpected("native NPC creation failed: " + target.designer_name);
   // Native CBaseEntity::CreateByDesignerName installs this subclass pair before
   // Spawn. The VData pointer follows the four-byte schema token without padding.
   if (target.subclass_id) {
-    WriteAt(entity, offsets_[1], target.subclass_id);
-    WriteAt(entity, offsets_[1] + sizeof(uint32_t), definition);
+    WriteAt(entity, calls_.offsets[1], target.subclass_id);
+    WriteAt(entity, calls_.offsets[1] + sizeof(uint32_t), definition);
   }
-  WriteAt(entity, offsets_[0], static_cast<uint8_t>(target.team));
+  WriteAt(entity, calls_.offsets[0], static_cast<uint8_t>(target.team));
   if (target.lane) {
     const auto* owner = LaneClass(target.designer_name);
     if (!owner) {
-      remove_(entity);
+      calls_.remove(entity);
       return std::unexpected("NPC lane class is unsupported");
     }
-    auto lane = SchemaFieldOf(schema_, "server.dll", owner, "m_iLane");
+    auto lane = SchemaFieldOf(calls_.schema, "server.dll", owner, "m_iLane");
     if (!lane || lane->size < sizeof(uint32_t)) {
-      remove_(entity);
+      calls_.remove(entity);
       return std::unexpected("trooper lane unavailable");
     }
     WriteAt(entity, lane->offset, *target.lane);
@@ -196,17 +197,17 @@ std::expected<void*, std::string> WorldEntities::Create(const Target& target) {
   TeleportEntity(entity, target.position, target.facing, target.velocity);
   const auto handle = ReferenceHandleOf(entity);
   if (!handle) {
-    remove_(entity);
+    calls_.remove(entity);
     return std::unexpected("created NPC has no native identity");
   }
-  auto key_values = BuildEntityKeyValues(key_values_, {});
+  auto key_values = BuildEntityKeyValues(calls_.key_values, {});
   if (!key_values) {
-    remove_(entity);
+    calls_.remove(entity);
     return std::unexpected("NPC spawn properties: " + key_values.error());
   }
   // Queued creation retains and consumes a native object even without properties.
-  queue_(*system, IdentityOf(entity), *key_values);
-  execute_(*system);
+  calls_.queue(*system, IdentityOf(entity), *key_values);
+  calls_.execute(*system);
   entity = EntityInstance(*system, *handle);
   if (!entity) return std::unexpected("NPC did not survive native spawn");
   return entity;
@@ -218,13 +219,13 @@ std::expected<void, std::string> WorldEntities::Restore(std::span<const Target> 
   for (const auto& target : targets) {
     if (!IsRestoredNpc(target.designer_name) || !target.subclass_id || target.health <= 0 ||
         target.max_health <= 0 || target.team < 0 || target.team > 4 ||
-        !definition_(-1, target.subclass_id))
+        !calls_.definition(-1, target.subclass_id))
       return std::unexpected("unsupported NPC target: " + target.designer_name);
     for (const auto& vector : {target.position, target.facing, target.velocity})
       for (float value : vector)
         if (!std::isfinite(value)) return std::unexpected("NPC target motion is nonfinite");
   }
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   std::vector<std::optional<uint32_t>> retained(targets.size());
   for (void* entity : EntityInstances(*system)) {
@@ -245,7 +246,7 @@ std::expected<void, std::string> WorldEntities::Restore(std::span<const Target> 
         }
       }
     }
-    if (!keep) remove_(entity);
+    if (!keep) calls_.remove(entity);
   }
   for (size_t i = 0; i < targets.size(); ++i) {
     void* entity = retained[i] ? EntityInstance(*system, *retained[i]) : nullptr;
@@ -264,7 +265,7 @@ std::expected<void, std::string> WorldEntities::Restore(std::span<const Target> 
 }
 
 std::expected<void, std::string> WorldEntities::FinishRestore() {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   for (const auto& sample : pending_) {
     void* entity = EntityInstance(*system, sample.handle);
@@ -283,9 +284,10 @@ std::expected<uint32_t, std::string> WorldEntities::CreatePickup(
   const bool urn = kind == Pickup::kUrn;
   Target target{};
   target.designer_name = urn ? "citadel_item_pickup_idol" : "citadel_item_pickup";
-  // The urn uses its designer class's native defaults, as citadel_spawn_urn
-  // does. Its designer name is not a VData subclass. Buffs select a modifier.
-  target.subclass_id = urn ? 0 : MakeMemberName("movement_powerup_pickup").hash;
+  // Native pickup Spawn reads its aura from VData. The urn's subclass shares
+  // its designer name; movement buffs select the movement pickup definition.
+  target.subclass_id =
+      MakeMemberName(urn ? "citadel_item_pickup_idol" : "movement_powerup_pickup").hash;
   target.position = position;
   auto entity = Create(target);
   if (!entity) return std::unexpected(entity.error());
@@ -296,7 +298,7 @@ std::expected<uint32_t, std::string> WorldEntities::CreatePickup(
 
 std::expected<std::optional<WorldEntities::Sample>, std::string> WorldEntities::ReadPickup(
     uint32_t handle) const {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   void* entity = EntityInstance(*system, handle);
   if (!entity) return std::nullopt;
@@ -308,7 +310,7 @@ std::expected<std::optional<WorldEntities::Sample>, std::string> WorldEntities::
 }
 
 std::expected<void, std::string> WorldEntities::ClearAuthored(const NativeDamage& damage) {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   std::vector<uint32_t> actors;
   for (void* entity : EntityInstances(*system)) {
@@ -324,7 +326,7 @@ std::expected<void, std::string> WorldEntities::ClearAuthored(const NativeDamage
     void* entity = EntityInstance(*system, handle);
     if (!entity) continue;
     if (IsRoundObjective(DesignerName(entity))) {
-      remove_(entity);
+      calls_.remove(entity);
       continue;
     }
     auto killed = damage.Kill(entity);
@@ -334,13 +336,13 @@ std::expected<void, std::string> WorldEntities::ClearAuthored(const NativeDamage
 }
 
 std::expected<size_t, std::string> WorldEntities::Remove(std::string_view designer_name) {
-  auto system = ResolveLiveEntitySystem();
+  auto system = calls_.entity_system();
   if (!system) return std::unexpected(system.error());
   // UTIL_Remove defers deletion, so the instance snapshot stays valid.
   size_t removed = 0;
   for (void* entity : EntityInstances(*system)) {
     if (DesignerName(entity) != designer_name) continue;
-    remove_(entity);
+    calls_.remove(entity);
     ++removed;
   }
   return removed;
