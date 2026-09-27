@@ -1,0 +1,81 @@
+#include "modlock/net/listen_boot.h"
+
+#include <filesystem>
+#include <string_view>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
+namespace modlock::net {
+
+// Dedicated-server flags allow local joins without VAC or a Steam lobby.
+// Replay and TV capture paths are disabled so idle console activation cannot
+// touch an unwritable replay sink.
+// -playtest disables engine user-config reads and writes. The dedicated host
+// shares the game installation with the player and must not overwrite it.
+constexpr std::string_view kDedicatedFlags =
+    "-dedicated -console -dev -insecure -allow_no_lobby_connect -playtest"
+    " +tv_citadel_auto_record 0 +spec_replay_enable 0 +tv_enable 0"
+    " +citadel_upload_replay_enabled 0";
+
+std::string BuildDedicatedCommandLine(const LaunchConfig& config) {
+  std::string line(kDedicatedFlags);
+  line += " +hostport " + std::to_string(config.host_port);
+  line += " +ip 0.0.0.0";
+  line += " +map " + config.map;
+  return line;
+}
+
+std::string BuildClientCommandLine(const LaunchConfig& config) {
+  // The early-development notice is modal at startup and holds keyboard focus
+  // until dismissed; dismissing it stores this same setting.
+  return "-console -insecure -novid +deadlock_early_development_warning_disabled 1 +connect " +
+         config.connect;
+}
+
+std::expected<int, std::string> RunEngine(const LaunchConfig& config,
+                                          const std::filesystem::path& engine_bin_dir) {
+#if defined(_WIN32)
+  // Stage 1: the engine module must already be mapped by the host app.
+  HMODULE engine = ::GetModuleHandleW(L"engine2.dll");
+  if (engine == nullptr) {
+    return std::unexpected(
+        "stage engine-module: engine2.dll is not mapped; the game modules "
+        "must load before the engine handoff");
+  }
+  // Stage 2: resolve the exported entry point.
+  const auto source2_main = reinterpret_cast<Source2MainFn>(
+      reinterpret_cast<void*>(::GetProcAddress(engine, "Source2Main")));
+  if (source2_main == nullptr) {
+    return std::unexpected(
+        "stage entry-point: Source2Main export not found in the mapped engine2.dll");
+  }
+  // Stage 3: render the staged command line. The engine locates the mod's
+  // gameinfo.gi through the -game directory argument (as stock dedicated
+  // servers do), not through the working directory.
+  const auto citadel_dir = engine_bin_dir.parent_path().parent_path() / "citadel";
+  std::string command_line =
+      config.connect.empty() ? BuildDedicatedCommandLine(config) : BuildClientCommandLine(config);
+  command_line += " -game \"" + citadel_dir.string() + "\"";
+  if (!config.engine_arguments.empty()) command_line += " " + config.engine_arguments;
+  // Stage 4: the base directory must exist; the engine resolves citadel
+  // content relative to it.
+  if (!std::filesystem::directory_entry(engine_bin_dir).exists()) {
+    return std::unexpected("stage base-dir: directory does not exist: " + engine_bin_dir.string());
+  }
+  // Stage 5: handoff. Blocking by design: Source2Main runs the server or
+  // client frame loop until shutdown. A client owns a visible game window.
+  const bool client = !config.connect.empty();
+  const int code =
+      source2_main(client ? ::GetModuleHandleW(nullptr) : nullptr, nullptr, command_line.c_str(),
+                   client ? SW_SHOWDEFAULT : 0, engine_bin_dir.string().c_str(), "citadel");
+  return code;
+#else
+  (void)config;
+  (void)engine_bin_dir;
+  return std::unexpected("the engine handoff requires the Windows host build");
+#endif
+}
+
+}  // namespace modlock::net

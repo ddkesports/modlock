@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+jobs:
+  sdk:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Resolve dependencies
+        run: go mod download github.com/aperturerobotics/protobuf github.com/aperturerobotics/abseil-cpp
+      - name: Build and test SDK
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+          cmake --install build --prefix "$PWD/build/sdk"
+      - name: Build independent consumer and check admission
+        run: |
+          cmake -S examples/hello -B build-hello -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/sdk"
+          cmake --build build-hello --parallel
+          build/sdk/bin/modlock-host --check-plugin --plugin "$PWD/build-hello/libhello.so"
+          cmake -S examples/hello -B build-bad -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/sdk" -DSAMPLE_ABI_MISMATCH=ON
+          cmake --build build-bad --parallel
+          if build/sdk/bin/modlock-host --check-plugin --plugin "$PWD/build-bad/libhello.so"; then exit 1; fi
+          cmake -S examples/hello -B build-fail -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/build/sdk" -DSAMPLE_FAIL_START=ON
+          cmake --build build-fail --parallel
+          if build/sdk/bin/modlock-host --check-plugin --plugin "$PWD/build-fail/libhello.so"; then exit 1; fi
+      - name: Go protocol tests
+        run: go test ./...

@@ -1,0 +1,7 @@
+/build*/
+/vendor/
+/.tools/
+/Testing/
+/.tmp/
+/node_modules/
+/.protoc-manifest.json

@@ -1,0 +1,6 @@
+@PACKAGE_INIT@
+set(Modlock_TEST_SUPPORT_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/modlock/testing")
+include(CMakeFindDependencyMacro)
+find_dependency(Protobuf CONFIG REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/ModlockTargets.cmake")
+check_required_components(Modlock)

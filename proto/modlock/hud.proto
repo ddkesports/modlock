@@ -1,0 +1,32 @@
+syntax = "proto2";
+
+package modlock.engine;
+
+option go_package = "github.com/paralin/modlock/proto/modlock/engine";
+
+// HudTextMessage matches native CUserMessageTextMsg, message 124.
+message HudTextMessage {
+  // Dest selects the native print destination; 4 is HUD_PRINTCENTER.
+  optional uint32 dest = 1;
+
+  // Param contains the text followed by any native format substitutions.
+  repeated string param = 2;
+}
+
+// HudAnnouncement matches Deadlock CCitadelUserMsg_HudGameAnnouncement, message 363.
+message HudAnnouncement {
+  // TitleLocstring is the announcement title or localization token.
+  optional string title_locstring = 1;
+
+  // DescriptionLocstring is the announcement description or localization token.
+  optional string description_locstring = 2;
+
+  // Classname adds existing native announcement style classes.
+  repeated string classname = 3;
+
+  // DialogVariableName identifies an optional localized substitution.
+  repeated string dialog_variable_name = 4;
+
+  // DialogVariableLocstring supplies the localized substitution.
+  repeated string dialog_variable_locstring = 5;
+}

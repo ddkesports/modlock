@@ -1,0 +1,41 @@
+#pragma once
+
+#include <string>
+
+// Compiler and runtime macros are evaluated by each consumer's own toolchain.
+#define MODLOCK_STRINGIFY_IMPL(value) #value
+#define MODLOCK_STRINGIFY(value) MODLOCK_STRINGIFY_IMPL(value)
+#if defined(__clang__)
+#define MODLOCK_COMPILER_ABI "clang-" __clang_version__
+#elif defined(_MSC_VER)
+#define MODLOCK_COMPILER_ABI "msvc-" MODLOCK_STRINGIFY(_MSC_FULL_VER)
+#elif defined(__GNUC__)
+#define MODLOCK_COMPILER_ABI "gcc-" __VERSION__
+#endif
+#if defined(_LIBCPP_VERSION)
+#define MODLOCK_STDLIB_ABI "libcpp-" MODLOCK_STRINGIFY(_LIBCPP_VERSION)
+#elif defined(__GLIBCXX__)
+#define MODLOCK_STDLIB_ABI "libstdcpp-" MODLOCK_STRINGIFY(__GLIBCXX__) "-" MODLOCK_STRINGIFY(_GLIBCXX_USE_CXX11_ABI)
+#elif defined(_MSVC_STL_VERSION)
+#define MODLOCK_STDLIB_ABI "msvcstl-" MODLOCK_STRINGIFY(_MSVC_STL_VERSION) "-" MODLOCK_STRINGIFY(_ITERATOR_DEBUG_LEVEL)
+#endif
+#if defined(NDEBUG)
+#define MODLOCK_BUILD_ABI "release"
+#else
+#define MODLOCK_BUILD_ABI "debug"
+#endif
+#if defined(_WIN32) && defined(_MSC_VER) && !defined(_DLL)
+#define MODLOCK_CRT_ABI "static-crt"
+#else
+#define MODLOCK_CRT_ABI "shared-crt"
+#endif
+
+#if defined(__cpp_constinit)
+#define MODLOCK_PROTO_INIT_ABI "constinit"
+#else
+#define MODLOCK_PROTO_INIT_ABI "dynamic-init"
+#endif
+
+#define MODLOCK_SOURCE_REVISION "@MODLOCK_REVISION@"
+// MODLOCK_SDK_ABI identifies the source, headers, compiler, and C++ runtime.
+#define MODLOCK_SDK_ABI MODLOCK_SOURCE_REVISION ";@MODLOCK_INTERFACE_HASH@;" MODLOCK_COMPILER_ABI ";" MODLOCK_STDLIB_ABI ";" MODLOCK_BUILD_ABI ";" MODLOCK_CRT_ABI ";" MODLOCK_PROTO_INIT_ABI
