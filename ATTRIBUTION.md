@@ -43,6 +43,6 @@ Deadlock Dolly contributors. The notice is kept in those files.
 
 | Library | Location | License |
 | --- | --- | --- |
-| [safetyhook](https://github.com/cursey/safetyhook) | `third_party/safetyhook/safetyhook.*` | Boost Software License 1.0 |
-| [Zydis](https://github.com/zyantific/zydis) | `third_party/safetyhook/Zydis.*` | MIT, notice in `Zydis.h` |
+| [safetyhook](https://github.com/cursey/safetyhook) | `third_party/safetyhook/safetyhook.*` | Boost Software License 1.0, in `LICENSE` |
+| [Zydis](https://github.com/zyantific/zydis) | `third_party/safetyhook/Zydis.*` | MIT, in `LICENSE.Zydis` |
 | [GoogleTest](https://github.com/google/googletest) | `third_party/googletest` (tests only) | BSD 3-Clause |
