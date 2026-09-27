@@ -31,6 +31,9 @@ class FakeModuleImage : public ModuleImage {
     bytes_.insert(bytes_.end(), parsed.bytes.begin(), parsed.bytes.end());
   }
 
+  // AddSignature lays the recorded GameSignatures() pattern for id.
+  void AddSignature(std::string_view id) { Add(id, FindGameSignature(id)->pattern); }
+
   // PatchRelativeCall writes an E8 rel32 at id's offset + call_delta that
   // decodes to exactly `target` for this image's base.
   void PatchRelativeCall(std::string_view id, size_t call_delta, void* target) {

@@ -1,18 +1,17 @@
-// Contract tests for the gameinterop hero-definition lookup: recorded probe
+// Contract tests for the gameinterop hero-definition lookup: recorded signature
 // resolution against a synthetic module image, name -> (id, definition)
 // lookup through recording fakes, and the fail-closed contracts (unknown
 // name, unlive manager, unresolved slots).
 #include <string>
+#include <string_view>
 
 #include "gameinterop_module_image_test.h"
 #include "gtest/gtest.h"
 #include "modlock/gameinterop/hero_definitions.h"
-#include "modlock/gameinterop/signature.h"
 
 namespace {
 
 using modlock::gameinterop::HeroDefinitionCalls;
-using modlock::gameinterop::HeroDefinitionProbes;
 using modlock::gameinterop::HeroDefinitions;
 namespace gti = modlock::gameinterop::testing;
 
@@ -74,54 +73,39 @@ class HeroDefinitionsTest : public ::testing::Test {
   HeroDefinitions owner_;
 };
 
-// ---- Resolve: the recorded probes must land in a synthetic image laid from
-// HeroDefinitionProbes() itself, mirroring how a live session scans
+// ---- Resolve: the recorded signatures must land in a synthetic image laid
+// from GameSignatures() itself, mirroring how a live session scans
 // server.dll. ----
 
-TEST(HeroDefinitionsResolveTest, ResolveAcceptsCompleteImage) {
+constexpr std::string_view kSignatureIds[] = {
+    "hero-definition-manager.get-manager",
+    "hero-definition-manager.hero-name-to-id",
+    "hero-definition-manager.get-hero-by-id",
+};
+
+gti::FakeModuleImage ImageWithout(std::string_view missing) {
   gti::FakeModuleImage image;
-  for (const auto& probe : HeroDefinitionProbes()) {
-    image.Add(probe.id, probe.pattern);
+  for (const auto id : kSignatureIds) {
+    if (id != missing) image.AddSignature(id);
   }
   image.Seal(reinterpret_cast<std::uintptr_t>(&ManagerGetter));
-  image.PatchRelativeCall("hero-definition-manager.get-manager-anchor", 0xE,
+  image.PatchRelativeCall("hero-definition-manager.get-manager", 0xE,
                           reinterpret_cast<void*>(&ManagerGetter));
+  return image;
+}
 
+TEST(HeroDefinitionsResolveTest, ResolveAcceptsCompleteImage) {
+  const auto image = ImageWithout({});
   auto owner = HeroDefinitions::Resolve(image);
   ASSERT_TRUE(owner.has_value()) << owner.error();
 }
 
-TEST(HeroDefinitionsResolveTest, ResolveFailsClosedWhenAProbeIsAbsent) {
-  gti::FakeModuleImage image;
-  for (const auto& probe : HeroDefinitionProbes()) {
-    if (probe.id != "hero-definition-manager.hero-name-to-id") {
-      image.Add(probe.id, probe.pattern);
-    }
-  }
-  image.Seal(reinterpret_cast<std::uintptr_t>(&ManagerGetter));
-  image.PatchRelativeCall("hero-definition-manager.get-manager-anchor", 0xE,
-                          reinterpret_cast<void*>(&ManagerGetter));
+TEST(HeroDefinitionsResolveTest, ResolveFailsClosedWhenASignatureIsAbsent) {
+  const auto image = ImageWithout("hero-definition-manager.hero-name-to-id");
   auto owner = HeroDefinitions::Resolve(image);
   ASSERT_FALSE(owner.has_value());
   EXPECT_NE(owner.error().find("hero-definition-manager.hero-name-to-id"), std::string::npos)
       << owner.error();
-}
-
-TEST(HeroDefinitionsResolveTest, ProbePatternsParseAndScanUnderGameinteropConventions) {
-  for (const auto& probe : HeroDefinitionProbes()) {
-    EXPECT_EQ(probe.library, "server.dll") << probe.id;
-    EXPECT_FALSE(probe.pattern.empty()) << probe.id;
-    EXPECT_FALSE(probe.shape.empty()) << probe.id;
-    const auto parsed = modlock::gameinterop::ParseSignature(std::string(probe.id), probe.pattern);
-    ASSERT_TRUE(parsed.has_value()) << probe.id;
-    std::vector<uint8_t> blob = parsed->bytes;
-    blob.push_back(0xC3);
-    blob.push_back(0x90);
-    const auto hits = modlock::gameinterop::SignatureScan(blob, *parsed);
-    EXPECT_EQ(hits.size(), 1) << probe.id;
-    ASSERT_FALSE(hits.empty());
-    EXPECT_EQ(hits.front(), 0) << probe.id;
-  }
 }
 
 // ---- Find: the lookup contract over recording fakes. ----

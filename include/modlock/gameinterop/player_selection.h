@@ -13,7 +13,6 @@ struct MODLOCK_API PlayerSelectionCalls {
   void* (*spawn_observer)(void* controller) = nullptr;
   static std::expected<PlayerSelectionCalls, std::string> Resolve(const ModuleImage& server);
 };
-MODLOCK_API std::vector<HeroDefinitionProbe> PlayerSelectionProbes();
 
 // ResetHeroPawn rebuilds the current hero with fresh native equipment and progression.
 using ResetHeroPawn = int64_t (*)(void* pawn, bool reset_abilities);

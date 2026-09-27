@@ -433,10 +433,7 @@ std::expected<AbilityChargeSlots, std::string> ResolveAbilityChargeSlots(
     const ModuleImage& server) {
   // HeroRefresh calls HasCharges, GetMaxCharges and SetCharges in that order.
   // The loop tail distinguishes it from another refresh path with the same calls.
-  const auto address =
-      ResolveScannedSymbol(server, "ability.refresh-charges",
-                           "FF 90 ?? ?? ?? ?? 84 C0 74 17 48 8B 1F 48 8B CF FF 93 ?? ?? ?? ?? "
-                           "8B D0 48 8B CF FF 93 ?? ?? ?? ?? 45 33 D2 FF C5 49 83 C6 04");
+  const auto address = ResolveSignature(server, "ability.refresh-charges");
   if (!address) return std::unexpected(address.error());
   const auto offset = reinterpret_cast<uintptr_t>(*address) - server.base();
   const auto* bytes = server.image_bytes().data() + offset;
@@ -918,8 +915,7 @@ void* PawnObserver::PawnForSlot(int32_t slot) const {
 }
 
 std::expected<ModifyCurrency, std::string> ResolveModifyCurrency(const ModuleImage& server) {
-  auto address = ResolveScannedSymbol(server, "pawn.modify-currency",
-                                      "48 89 5C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D AC 24");
+  auto address = ResolveSignature(server, "pawn.modify-currency");
   if (!address) return std::unexpected(address.error());
   return reinterpret_cast<ModifyCurrency>(*address);
 }
@@ -997,22 +993,16 @@ std::expected<PawnObserver::Sample, std::string> PawnObserver::PrepareAbilityPoi
 
 std::expected<SetMoveType, std::string> ResolvePreparationMovement(const ModuleImage& server) {
   // Movement setup tests FL_FROZEN before clearing buttons and movement axes.
-  const auto input = ResolveScannedSymbol(server, "preparation.frozen-input",
-                                          "F6 80 80 03 00 00 20 75 ?? 48 8D 54 24 ?? 48 8B CB E8");
+  const auto input = ResolveSignature(server, "preparation.frozen-input");
   if (!input) return std::unexpected(input.error());
 
   // TakeDamageOld skips damage when m_bTakesDamage is false. The following
   // instructions distinguish this entry gate from its later damage comparison.
-  const auto damage =
-      ResolveScannedSymbol(server, "preparation.damage-gate",
-                           "44 38 AE E0 02 00 00 0F 84 ?? ?? ?? ?? 48 8B 4F 78 0F 57 FF");
+  const auto damage = ResolveSignature(server, "preparation.damage-gate");
   if (!damage) return std::unexpected(damage.error());
 
   // SetMoveType owns replication and the physics-mode transition.
-  const auto movement = ResolveScannedSymbol(
-      server, "preparation.set-move-type",
-      "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 "
-      "EC 20 41 0F B6 F0 0F B6 EA 48 8B F9 38 91 F3 02 00 00");
+  const auto movement = ResolveSignature(server, "entity.set-move-type");
   if (!movement) return std::unexpected(movement.error());
   return reinterpret_cast<SetMoveType>(*movement);
 }
@@ -1270,16 +1260,13 @@ PawnObserver::CurrentAbilitiesForSlot(int32_t slot) {
 }
 
 std::expected<SetUpgradeBits, std::string> ResolveSetUpgradeBits(const ModuleImage& server) {
-  auto address =
-      ResolveScannedSymbol(server, "ability.set-upgrade-bits", "48 8B C4 89 50 ?? 55 57 48 8D 68");
+  auto address = ResolveSignature(server, "ability.set-upgrade-bits");
   if (!address) return std::unexpected(address.error());
   return reinterpret_cast<SetUpgradeBits>(*address);
 }
 
 std::expected<CreateAbility, std::string> ResolveCreateAbility(const ModuleImage& server) {
-  auto address =
-      ResolveScannedSymbol(server, "ability.create-and-register",
-                           "48 89 5C 24 ?? 44 89 4C 24 ?? 55 56 57 41 56 41 57 48 83 EC");
+  auto address = ResolveSignature(server, "ability.create-and-register");
   if (!address) return std::unexpected(address.error());
   return reinterpret_cast<CreateAbility>(*address);
 }
@@ -1516,28 +1503,19 @@ std::expected<TeleportClientCamera, std::string> ResolveTeleportClientCamera(
     const ModuleImage& server) {
   // The first receiver is unused. The helper teleports its second argument,
   // then sends user message 321 with all three camera axes to that pawn's client.
-  auto address =
-      ResolveScannedSymbol(server, "pawn.teleport-client-camera",
-                           "48 89 5C 24 08 48 89 74 24 18 48 89 7C 24 20 55 41 56 41 57 "
-                           "48 8D 6C 24 B9 48 81 EC D0 00 00 00 48 8B 02 49 8B F9 4D 8B D0");
+  auto address = ResolveSignature(server, "pawn.teleport-client-camera");
   if (!address) return std::unexpected(address.error());
   return reinterpret_cast<TeleportClientCamera>(*address);
 }
 
 std::expected<ItemFunctions, std::string> ItemFunctions::Resolve(const ModuleImage& server) {
-  auto add = ResolveScannedSymbol(server, "pawn.add-item",
-                                  "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 30 48 "
-                                  "8B D9 41 8B F1 B9 04 00 00 00 41");
+  auto add = ResolveSignature(server, "pawn.add-item");
   if (!add) return std::unexpected(add.error());
-  auto remove =
-      ResolveScannedSymbol(server, "ability.remove-item",
-                           "48 89 5C 24 ?? 55 56 57 48 83 EC 60 41 0F B6 E8 48 8B F2 48 8B F9");
+  auto remove = ResolveSignature(server, "ability.remove-item");
   if (!remove) return std::unexpected(remove.error());
   auto bits = ResolveSetUpgradeBits(server);
   if (!bits) return std::unexpected(bits.error());
-  auto swap = ResolveScannedSymbol(
-      server, "ability.swap-item-slots",
-      "66 41 3B D0 0F 84 ?? ?? ?? ?? 66 44 89 44 24 18 66 89 54 24 10 55 56 57");
+  auto swap = ResolveSignature(server, "ability.swap-item-slots");
   if (!swap) return std::unexpected(swap.error());
   return ItemFunctions{reinterpret_cast<Add>(*add), reinterpret_cast<Remove>(*remove), *bits,
                        reinterpret_cast<SwapSlots>(*swap)};

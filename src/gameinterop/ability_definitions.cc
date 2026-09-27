@@ -8,8 +8,7 @@ std::expected<AbilityDefinitions, std::string> AbilityDefinitions::Resolve(
     const ModuleImage& server) {
   // LookupVDataByHash scope 4 selects abilities and items. The
   // Windows implementation consumes EDX as a 32-bit hash, including its high bit.
-  auto address = ResolveScannedSymbol(server, "ability.lookup-vdata-by-hash",
-                                      "40 53 48 83 EC ?? 89 54 24 ?? 8B D9");
+  auto address = ResolveSignature(server, "vdata.lookup-by-hash");
   if (!address) return std::unexpected(address.error());
   return AbilityDefinitions(reinterpret_cast<Lookup>(*address));
 }

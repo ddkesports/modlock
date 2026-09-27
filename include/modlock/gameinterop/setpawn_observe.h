@@ -11,7 +11,7 @@
 
 namespace modlock::gameinterop {
 
-// SetPawnObservation is the M2 one-shot observational packet: a read-only
+// SetPawnObservation is a one-shot observational packet: a read-only
 // attach that interposes CBasePlayerController::SetPawn and logs every call
 // to durable stderr. It mutates nothing - the thunk runs the engine original
 // first (so the engine's own pawn binding proceeds untouched), then records
@@ -22,9 +22,8 @@ namespace modlock::gameinterop {
 // The four flags (retainOldPawnTeam, copyMovementState, allowTeamMismatch,
 // preserveMovementState) are logged verbatim; the truth table is classified
 // afterward from the capture. The caller return address is resolved to an
-// RVA inside server.dll where possible, so the recorded caller RVAs (e.g.
-// the in-engine 0x1902766 network/message-field bind path) can be matched
-// against a static disassembly of server.dll.
+// RVA inside server.dll where possible, so caller RVAs can be matched against
+// a static disassembly of server.dll.
 //
 // Rate safety: the hook is bounded per process. A line budget (default 256)
 // caps total output; after the budget is exhausted a single typed overflow
@@ -39,12 +38,7 @@ namespace modlock::gameinterop {
 // diagnostic on stderr.
 class MODLOCK_API SetPawnObservation {
  public:
-  // CBasePlayerController::SetPawn signature, checked against the installed
-  // server.dll (SHA-256 ce106b5e...a04a6c7):
-  // exactly one hit in .text at RVA 0x1788870.
-  static constexpr char kSetPawnPattern[] = "44 88 4C 24 ?? 53 57";
-
-  // Install scans server.dll for the SetPawn pattern and hooks it. Failure
+  // Install resolves the recorded controller.set-pawn signature and hooks it. Failure
   // names the rejected shape (module image, signature, or hook).
   static std::expected<SetPawnObservation, std::string> Install(const ModuleImage& server);
 

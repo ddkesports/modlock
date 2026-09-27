@@ -52,7 +52,7 @@ struct MODLOCK_API WorldTextGameCalls {
 // the host on its own.
 class MODLOCK_API WorldTextGameFactory final : public WorldTextEntityFactory {
  public:
-  // TryCreate resolves every scanned probe of WorldTextProbes() against
+  // TryCreate resolves every recorded world-text signature against
   // server and returns the factory, or an error naming the first unresolved
   // world-text or keyvalues symbol.
   static std::expected<std::unique_ptr<WorldTextGameFactory>, std::string> TryCreate(

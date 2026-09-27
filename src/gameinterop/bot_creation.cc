@@ -10,9 +10,7 @@ namespace modlock::gameinterop {
 std::expected<BotCreation, std::string> BotCreation::Resolve(const ModuleImage& server) {
   // CreateCitadelBot takes name, native team, hero ID and a position vector.
   // The factory publishes the fake client before requesting hero selection.
-  const auto address = ResolveScannedSymbol(
-      server, "bot.create",
-      "40 53 55 41 54 41 55 48 83 EC 38 4C 8B E1 49 8B E9 48 8B 0D ?? ?? ?? ?? 41 8B D8 44 8B EA");
+  const auto address = ResolveSignature(server, "bot.create");
   if (!address) return std::unexpected(address.error());
   BotCreation result;
   result.create_ = reinterpret_cast<decltype(create_)>(*address);

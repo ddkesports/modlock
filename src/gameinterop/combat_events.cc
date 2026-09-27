@@ -16,15 +16,6 @@
 namespace modlock::gameinterop {
 namespace {
 
-// kFireModifierEventPattern identifies the FireModifierEvent free function.
-// Verified unique in the pinned server.dll
-// (SHA ce106b5e...); an engine update that shifts it must fail loud here.
-constexpr char kFireModifierEventPattern[] =
-    "40 55 56 41 55 48 8D 6C 24 ?? 48 81 EC ?? ?? ?? ?? 33 F6";
-// Native broadcast dispatcher, shared by damage, healing and shield events.
-constexpr char kBroadcastPattern[] =
-    "48 89 54 24 10 89 4C 24 08 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 E1";
-
 // Native modifier-event payload offsets.
 constexpr size_t kDamageVictimOffset = 0;
 constexpr size_t kDamageAttackerOffset = 4;
@@ -358,10 +349,9 @@ std::expected<CombatEventsHook, std::string> CombatEventsHook::Install(
   if (g_hook != nullptr || !handler) {
     return std::unexpected("combat events hook is already installed or handler absent");
   }
-  auto target =
-      ResolveScannedSymbol(server, "combat.fire-modifier-event", kFireModifierEventPattern);
+  auto target = ResolveSignature(server, "combat.fire-modifier-event");
   if (!target) return std::unexpected(target.error());
-  auto broadcast = ResolveScannedSymbol(server, "combat.broadcast", kBroadcastPattern);
+  auto broadcast = ResolveSignature(server, "combat.broadcast");
   if (!broadcast) return std::unexpected(broadcast.error());
 
   // The result fields are schema-resolved at runtime; no offset is invented.

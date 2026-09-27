@@ -146,8 +146,7 @@ NativeTrace::~NativeTrace() = default;
 std::expected<NativeTrace, std::string> NativeTrace::Install(const ModuleImage& server) {
 #if defined(_WIN32)
   if (g_hook) return std::unexpected("native trace is already installed");
-  auto target = ResolveScannedSymbol(server, "physics.trace-shape",
-                                     "48 89 5C 24 ?? 48 89 4C 24 ?? 55 56 41 54");
+  auto target = ResolveSignature(server, "physics.trace-shape");
   if (!target) return std::unexpected(target.error());
   auto hook = safetyhook::create_inline(*target, reinterpret_cast<void*>(&TraceThunk),
                                         safetyhook::InlineHook::StartDisabled);

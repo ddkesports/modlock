@@ -9,9 +9,7 @@ namespace modlock::gameinterop {
 std::expected<NativeSound, std::string> NativeSound::TryCreate(const ModuleImage& server) {
 #if defined(_WIN32)
   // Resolve the native CBaseEntity::EmitSoundParams entry point.
-  constexpr char kEmitSoundPattern[] =
-      "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 48 8B EC 48 81 EC ?? ?? ?? ?? 33 C0";
-  auto target = ResolveScannedSymbol(server, "entity.emit-sound", kEmitSoundPattern);
+  auto target = ResolveSignature(server, "entity.emit-sound");
   if (!target) return std::unexpected(target.error());
   return NativeSound(reinterpret_cast<EmitFunction>(*target));
 #else

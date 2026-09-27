@@ -49,41 +49,6 @@ std::uint32_t MurmurHash2(const unsigned char* data, size_t length, std::uint32_
   return h;
 }
 
-// SlotFor maps one probe id to its KeyValuesCalls slot.
-void** SlotFor(KeyValuesCalls& calls, std::string_view id) {
-  if (id == "entity-keyvalues.allocate") {
-    return reinterpret_cast<void**>(&calls.allocate);
-  }
-  if (id == "entity-keyvalues.construct") {
-    return reinterpret_cast<void**>(&calls.construct_key_values);
-  }
-  if (id == "entity-keyvalues.set-key-value") {
-    return reinterpret_cast<void**>(&calls.set_key_value);
-  }
-  if (id == "entity-keyvalues.create") {
-    return reinterpret_cast<void**>(&calls.create_key_values);
-  }
-  if (id == "entity-keyvalues.set-string") {
-    return reinterpret_cast<void**>(&calls.set_string);
-  }
-  if (id == "entity-keyvalues.set-bool") {
-    return reinterpret_cast<void**>(&calls.set_bool);
-  }
-  if (id == "entity-keyvalues.set-int") {
-    return reinterpret_cast<void**>(&calls.set_int);
-  }
-  if (id == "entity-keyvalues.set-float") {
-    return reinterpret_cast<void**>(&calls.set_float);
-  }
-  if (id == "entity-keyvalues.set-color") {
-    return reinterpret_cast<void**>(&calls.set_color);
-  }
-  if (id == "entity-keyvalues.set-vector") {
-    return reinterpret_cast<void**>(&calls.set_vector);
-  }
-  return nullptr;
-}
-
 struct RawKeyValues3 {
   std::uint64_t metadata;
   std::uint64_t data;
@@ -170,29 +135,6 @@ std::expected<void, std::string> SetFreshRawValue(RawKeyValues3& target,
 
 }  // namespace
 
-std::vector<KeyValuesProbe> KeyValuesProbes() {
-  // The allocator wrapper repeats. Its neighboring realloc instructions make
-  // the match unique; RIP-relative addresses vary between game builds.
-  return {
-      {.id = "entity-keyvalues.allocate",
-       .library = "server.dll",
-       .pattern = "48 8B 05 ?? ?? ?? ?? 48 8B D1 48 8B 08 48 8B 01 48 FF 60 08 "
-                  "CC CC CC CC CC CC CC CC CC CC CC CC "
-                  "48 8B 05 ?? ?? ?? ?? 4C 8B C9 4C 8B C2 49 8B D1",
-       .shape = "void* __cdecl(size_t); engine MemAlloc_Alloc wrapper"},
-      {.id = "entity-keyvalues.construct",
-       .library = "server.dll",
-       .pattern = "48 89 5C 24 08 57 48 83 EC 20 33 FF 48 8B D9 48 89 79 28 48 89 79 30 "
-                  "44 88 41 25 48 85 D2 74 ??",
-       .shape = "CEntityKeyValues* __thiscall(storage, CKV3Arena*, EntityKVAllocatorType_t)"},
-      {.id = "entity-keyvalues.set-key-value",
-       .library = "server.dll",
-       .pattern = "40 53 55 56 48 83 EC 30 66 83 79 22 00 41 0F B6 E8 48 8B F2 48 8B D9 "
-                  "7E ??",
-       .shape = "KeyValues3* __thiscall(CEntityKeyValues*, const CKV3MemberName*, bool)"},
-  };
-}
-
 MemberName MakeMemberName(std::string_view key) {
   // HashStringWithBuffer lowercases into a buffer before hashing
   // (tier0/utlstringtoken.h), so the token is case-insensitive.
@@ -208,27 +150,23 @@ MemberName MakeMemberName(std::string_view key) {
   };
 }
 
-std::expected<KeyValuesCalls, std::string> ResolveKeyValuesCalls(
-    const ModuleImage& image, std::span<const KeyValuesProbe> probes) {
+std::expected<KeyValuesCalls, std::string> ResolveKeyValuesCalls(const ModuleImage& image) {
   KeyValuesCalls calls;
-  for (const auto& probe : probes) {
-    void** slot = SlotFor(calls, probe.id);
-    if (slot == nullptr) {
-      return std::unexpected("keyvalues probe '" + std::string(probe.id) +
-                             "' has no call slot; extend SlotFor with it");
-    }
-    if (auto address = ResolveScannedSymbol(image, probe.id, probe.pattern)) {
-      *slot = *address;
-    } else {
-      return std::unexpected(address.error());
-    }
+  struct Entry {
+    std::string_view id;
+    void** slot;
+  };
+  const Entry entries[] = {
+      {"entity-keyvalues.allocate", reinterpret_cast<void**>(&calls.allocate)},
+      {"entity-keyvalues.construct", reinterpret_cast<void**>(&calls.construct_key_values)},
+      {"entity-keyvalues.set-key-value", reinterpret_cast<void**>(&calls.set_key_value)},
+  };
+  for (const auto& entry : entries) {
+    auto address = ResolveSignature(image, entry.id);
+    if (!address) return std::unexpected(address.error());
+    *entry.slot = *address;
   }
   return calls;
-}
-
-std::expected<KeyValuesCalls, std::string> ResolveKeyValuesCalls(const ModuleImage& image) {
-  const auto probes = KeyValuesProbes();
-  return ResolveKeyValuesCalls(image, probes);
 }
 
 void* AllocateEmptyEntityKeyValues() {

@@ -6,7 +6,6 @@
 #include <cstring>
 
 #include "modlock/gameinterop/entity_abi.h"
-#include "modlock/render/world_text_probes.h"
 
 namespace modlock::render {
 namespace {
@@ -24,16 +23,6 @@ void PlaceEntity(void* entity, const modlock::Vec3& origin, const modlock::Euler
                               {static_cast<float>(angles.pitch()), static_cast<float>(angles.yaw()),
                                static_cast<float>(angles.roll())},
                               {});
-}
-
-// ProbePattern finds one WorldTextProbes() entry by id.
-std::string_view ProbePattern(std::string_view id) {
-  for (const auto& probe : WorldTextProbes()) {
-    if (probe.id == id) {
-      return probe.pattern;
-    }
-  }
-  return {};
 }
 
 using CreateEntityByNameFn = void* (*)(void*, const char*, int);
@@ -75,30 +64,22 @@ bool WriteWorldTextMessage(void* entity, const char* message) {
 
 std::expected<std::unique_ptr<WorldTextGameFactory>, std::string> WorldTextGameFactory::TryCreate(
     const modlock::gameinterop::ModuleImage& server) {
-  auto resolve = [&server](std::string_view id) {
-    return modlock::gameinterop::ResolveScannedSymbol(server, id, ProbePattern(id));
-  };
-
   WorldTextGameCalls calls;
-  if (auto address = resolve("entity-system.create-entity-by-name")) {
-    calls.create_entity_by_name =
-        reinterpret_cast<CreateEntityByNameFn>(reinterpret_cast<std::uintptr_t>(*address));
-  } else {
-    return std::unexpected(address.error());
-  }
   struct Entry {
     std::string_view id;
     void** slot;
   };
   const Entry entries[] = {
+      {"entity-system.create-entity-by-name",
+       reinterpret_cast<void**>(&calls.create_entity_by_name)},
       {"entity-system.queue-spawn-entity", reinterpret_cast<void**>(&calls.queue_spawn_entity)},
       {"entity-system.execute-queued-creation",
        reinterpret_cast<void**>(&calls.execute_queued_creation)},
       {"entity-instance.accept-input", reinterpret_cast<void**>(&calls.accept_input)},
-      {"util.remove", reinterpret_cast<void**>(&calls.util_remove)},
+      {"entity.remove", reinterpret_cast<void**>(&calls.util_remove)},
   };
   for (const auto& entry : entries) {
-    if (auto address = resolve(entry.id)) {
+    if (auto address = modlock::gameinterop::ResolveSignature(server, entry.id)) {
       *entry.slot = *address;
     } else {
       return std::unexpected(address.error());

@@ -103,9 +103,9 @@ add_library(modlock_sdk SHARED
   src/gameinterop/console_variables.cc
   src/gameinterop/engine_server.cc
   src/gameinterop/entity_abi.cc
-  src/gameinterop/entity_system_probes.cc
   src/gameinterop/frame_hook.cc
   src/gameinterop/game_rules.cc
+  src/gameinterop/game_signatures.cc
   src/gameinterop/game_symbols.cc
   src/gameinterop/hero_definitions.cc
   src/gameinterop/hero_initialization.cc
@@ -117,8 +117,6 @@ add_library(modlock_sdk SHARED
   src/gameinterop/native_trace.cc
   src/gameinterop/native_user_messages.cc
   src/gameinterop/pawn_observer.cc
-  src/gameinterop/profile_manifest.cc
-  src/gameinterop/player_identity.cc
   src/gameinterop/player_selection.cc
   src/gameinterop/respawn_guard.cc
   src/gameinterop/server_clock.cc
@@ -136,7 +134,6 @@ add_library(modlock_sdk SHARED
   src/net/listen_boot.cc
   src/render/world_effect_game_factory.cc
   src/render/world_text_game_factory.cc
-  src/render/world_text_probes.cc
   proto/modlock/camera.pb.cc
   proto/modlock/chat.pb.cc
   proto/modlock/hud.pb.cc
@@ -187,6 +184,13 @@ target_link_libraries(modlock_sdk PRIVATE ${CMAKE_DL_LIBS})
 add_executable(modlock-host src/host_app/main.cc)
 target_link_libraries(modlock-host PRIVATE modlock::sdk)
 install(TARGETS modlock-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# modlock-sigcheck checks the recorded signatures against game binaries on
+# disk; it runs on any host, so it carries its own copy of the decoder.
+add_executable(modlock-sigcheck src/sigcheck/main.cc third_party/safetyhook/Zydis.c)
+target_include_directories(modlock-sigcheck SYSTEM PRIVATE third_party/safetyhook)
+target_link_libraries(modlock-sigcheck PRIVATE modlock::sdk)
+install(TARGETS modlock-sigcheck RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(NOT MODLOCK_REVISION)
   execute_process(COMMAND git rev-parse HEAD
@@ -262,9 +266,6 @@ if(BUILD_TESTING)
   add_executable(gameinterop_keyvalues_test tests/gameinterop_keyvalues_test.cc)
   target_link_libraries(gameinterop_keyvalues_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME gameinterop_keyvalues_test COMMAND gameinterop_keyvalues_test)
-  add_executable(gameinterop_player_identity_test tests/gameinterop_player_identity_test.cc)
-  target_link_libraries(gameinterop_player_identity_test PRIVATE modlock::sdk gtest_main)
-  add_test(NAME gameinterop_player_identity_test COMMAND gameinterop_player_identity_test)
   add_executable(gameinterop_resource_service_test tests/gameinterop_resource_service_test.cc)
   target_link_libraries(gameinterop_resource_service_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME gameinterop_resource_service_test COMMAND gameinterop_resource_service_test)
@@ -283,9 +284,6 @@ if(BUILD_TESTING)
   add_executable(game_symbols_test tests/game_symbols_test.cc)
   target_link_libraries(game_symbols_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME game_symbols_test COMMAND game_symbols_test)
-  add_executable(profile_manifest_test tests/profile_manifest_test.cc)
-  target_link_libraries(profile_manifest_test PRIVATE modlock::sdk gtest_main)
-  add_test(NAME profile_manifest_test COMMAND profile_manifest_test)
   add_executable(gameinterop_world_entities_test tests/gameinterop_world_entities_test.cc)
   target_link_libraries(gameinterop_world_entities_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME gameinterop_world_entities_test COMMAND gameinterop_world_entities_test)

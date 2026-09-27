@@ -116,8 +116,7 @@ std::expected<AbilityInputHook, std::string> AbilityInputHook::Install(
   if (g_hook || !handler || !failure)
     return std::unexpected("ability input: already installed or missing callbacks");
   // Resolve AbilityThink before binding its schema-derived input layout.
-  auto target =
-      ResolveScannedSymbol(server, "ability.think", "40 55 53 41 54 41 55 41 57 48 8D AC 24");
+  auto target = ResolveSignature(server, "ability.think");
   if (!target) return std::unexpected(target.error());
   const auto controller =
       SchemaFieldOf(schema_system, "server.dll", "CBasePlayerPawn", "m_hController");

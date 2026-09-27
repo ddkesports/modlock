@@ -5,7 +5,6 @@
 #include <cstring>
 
 #include "modlock/gameinterop/entity_abi.h"
-#include "modlock/gameinterop/entity_system_probes.h"
 #include "modlock/gameinterop/native_damage.h"
 #include "modlock/gameinterop/pawn_observer.h"
 
@@ -83,23 +82,22 @@ std::expected<WorldEntities, std::string> WorldEntities::Resolve(const ModuleIma
   auto key_values = ResolveKeyValuesCalls(server);
   if (!key_values) return std::unexpected(key_values.error());
   world.calls_.key_values = *key_values;
-  for (const auto& probe : EntitySystemProbes()) {
-    auto address = ResolveScannedSymbol(server, probe.id, probe.pattern);
+  struct Entry {
+    std::string_view id;
+    void** slot;
+  };
+  const Entry entries[] = {
+      {"entity-system.create-entity-by-name", reinterpret_cast<void**>(&world.calls_.create)},
+      {"entity-system.queue-spawn-entity", reinterpret_cast<void**>(&world.calls_.queue)},
+      {"entity-system.execute-queued-creation", reinterpret_cast<void**>(&world.calls_.execute)},
+      {"entity.remove", reinterpret_cast<void**>(&world.calls_.remove)},
+      {"vdata.lookup-by-hash", reinterpret_cast<void**>(&world.calls_.definition)},
+  };
+  for (const auto& entry : entries) {
+    auto address = ResolveSignature(server, entry.id);
     if (!address) return std::unexpected(address.error());
-    if (probe.id == "entity-system.create-entity-by-name")
-      world.calls_.create = reinterpret_cast<decltype(world.calls_.create)>(*address);
-    if (probe.id == "entity-system.queue-spawn-entity")
-      world.calls_.queue = reinterpret_cast<decltype(world.calls_.queue)>(*address);
-    if (probe.id == "entity-system.execute-queued-creation")
-      world.calls_.execute = reinterpret_cast<decltype(world.calls_.execute)>(*address);
+    *entry.slot = *address;
   }
-  auto remove = ResolveScannedSymbol(server, "util.remove", "48 85 C9 74 ? 48 8B D1 48 8B 0D");
-  if (!remove) return std::unexpected(remove.error());
-  world.calls_.remove = reinterpret_cast<decltype(world.calls_.remove)>(*remove);
-  auto definition = ResolveScannedSymbol(server, "world.lookup-vdata-by-hash",
-                                         "40 53 48 83 EC ?? 89 54 24 ?? 8B D9");
-  if (!definition) return std::unexpected(definition.error());
-  world.calls_.definition = reinterpret_cast<decltype(world.calls_.definition)>(*definition);
   struct Field {
     const char* owner;
     const char* name;

@@ -25,8 +25,9 @@ match results.
 - **Entities and rendering.** Create and remove world text, particles, and
   effects; observe and control player pawns; spawn bots; trace rays.
 - **Engine interop.** Signature scanning, relative call decoding, virtual table
-  slot hooks, schema offsets, and `CEntityKeyValues` construction. Each
-  signature sits next to the code that uses it.
+  slot hooks, schema offsets, and `CEntityKeyValues` construction. Every
+  byte signature lives in one table, and `modlock-sigcheck` checks the table
+  against the game binaries after an update.
 - **Session content.** Precache heroes and resources into the session manifest
   and advertise content addons to connecting clients.
 - **Protocols.** Protobuf messages for HUD text, announcements, chat, stamina,

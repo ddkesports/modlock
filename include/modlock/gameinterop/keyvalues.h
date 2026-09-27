@@ -14,28 +14,6 @@
 
 namespace modlock::gameinterop {
 
-// KeyValuesProbe names one CEntityKeyValues construction surface the live
-// session must resolve before key-value building runs. Patterns follow the
-// gameinterop signature-database syntax ("??" marks a wildcard byte). Each
-// recorded signature must resolve exactly once in the current server.dll;
-// resolution fails closed on an absent or ambiguous match.
-struct KeyValuesProbe {
-  // Id is the stable caller-chosen identity of the target function.
-  std::string_view id;
-  // Library is the expected module carrying the code.
-  std::string_view library;
-  // Pattern is the source-matched byte signature for the current server build.
-  std::string_view pattern;
-  // shape describes the native calling convention and argument contract.
-  std::string_view shape;
-};
-
-// KeyValuesProbes lists the minimal engine-native CEntityKeyValues surface:
-// allocation, construction, and fresh-member insertion.
-//
-// The recorded patterns bind allocation and member insertion in server.dll.
-[[nodiscard]] MODLOCK_API std::vector<KeyValuesProbe> KeyValuesProbes();
-
 // MemberName mirrors CKV3MemberName (tier1/keyvalues3.h): the 32-bit
 // case-insensitive string-token hash, the always-invalid large-symbol id,
 // and the original string pointer. MSVC x64 passes the 16-byte aggregate by
@@ -94,14 +72,9 @@ struct MODLOCK_API KeyValuesCalls {
   void (*set_vector)(void* ekv, const MemberName* name, const float* xyz) = nullptr;
 };
 
-// ResolveKeyValuesCalls resolves every probe in probes against image and
-// returns the call surface, or an error naming the first unresolved probe.
-// An empty pattern yields the documented no-recorded-pattern error.
-[[nodiscard]] MODLOCK_API std::expected<KeyValuesCalls, std::string> ResolveKeyValuesCalls(
-    const ModuleImage& image, std::span<const KeyValuesProbe> probes);
-
-// ResolveRecordedKeyValuesCalls resolves the production KeyValuesProbes()
-// table.
+// ResolveKeyValuesCalls resolves the recorded allocation, construction, and
+// member-insertion signatures against image, or returns an error naming the
+// first unresolved one.
 [[nodiscard]] MODLOCK_API std::expected<KeyValuesCalls, std::string> ResolveKeyValuesCalls(
     const ModuleImage& image);
 

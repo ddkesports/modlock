@@ -15,12 +15,6 @@
 namespace modlock::gameinterop {
 namespace {
 
-// kInitializeHeroPattern identifies CCitadelPlayerPawn::InitializeHeroOnPawn.
-// Installation requires exactly one match in the loaded server.
-constexpr char kInitializeHeroPattern[] =
-    "4C 8B DC 41 55 41 57 48 83 EC 58 0F B6 81 ?? ?? ?? ?? 44 0F B6 FA "
-    "83 C0 FE 4C 8B E9";
-
 #if defined(_WIN32)
 safetyhook::InlineHook* g_hook = nullptr;
 HeroInitializationHook::Handler g_handler;
@@ -99,7 +93,7 @@ std::expected<HeroInitializationHook, std::string> HeroInitializationHook::Insta
   if (g_hook != nullptr) {
     return std::unexpected("hero initialization hook is already installed");
   }
-  auto target = ResolveScannedSymbol(server, "pawn.initialize-hero", kInitializeHeroPattern);
+  auto target = ResolveSignature(server, "pawn.initialize-hero");
   if (!target.has_value()) {
     return std::unexpected(target.error());
   }

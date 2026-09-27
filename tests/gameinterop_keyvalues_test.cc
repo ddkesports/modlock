@@ -3,11 +3,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "gameinterop_module_image_test.h"
@@ -19,68 +16,36 @@ namespace {
 using modlock::gameinterop::BuildEntityKeyValues;
 using modlock::gameinterop::EntityKeyValue;
 using modlock::gameinterop::KeyValuesCalls;
-using modlock::gameinterop::KeyValuesProbe;
-using modlock::gameinterop::KeyValuesProbes;
 using modlock::gameinterop::MakeMemberName;
 using modlock::gameinterop::ResolveKeyValuesCalls;
 namespace gti = modlock::gameinterop::testing;
 
-// SyntheticProbeTable isolates resolver behavior from production signatures.
-// The returned strings outlive the probes' string_views.
-std::pair<std::vector<KeyValuesProbe>, std::vector<std::string>> SyntheticProbeTable() {
-  std::vector<std::string> patterns;
-  std::vector<KeyValuesProbe> probes;
-  int seed = 0;
-  for (const auto& probe : KeyValuesProbes()) {
-    // A unique trailing byte keeps each probe's hit unique inside the
-    // synthetic image.
-    char suffix[8];
-    std::snprintf(suffix, sizeof(suffix), "%02X", seed++);
-    patterns.push_back("48 8B C4 55 41 54 ?? ?? ?? ?? ?? ?? ?? 48 89 58 " + std::string(suffix));
-    probes.push_back({probe.id, probe.library, patterns.back(), probe.shape});
-  }
-  return {std::move(probes), std::move(patterns)};
-}
+constexpr std::string_view kSignatureIds[] = {
+    "entity-keyvalues.allocate",
+    "entity-keyvalues.construct",
+    "entity-keyvalues.set-key-value",
+};
 
-gti::FakeModuleImage BuildImage(std::span<const KeyValuesProbe> probes) {
+// BuildImage lays every recorded keyvalues signature except missing.
+gti::FakeModuleImage BuildImage(std::string_view missing = {}) {
   gti::FakeModuleImage image;
-  for (const auto& probe : probes) {
-    EXPECT_FALSE(probe.pattern.empty()) << probe.id;
-    image.Add(probe.id, probe.pattern);
+  for (const auto id : kSignatureIds) {
+    if (id != missing) image.AddSignature(id);
   }
   image.Seal(0x50000000);
   return image;
 }
 
-TEST(KeyValuesTest, ProductionTableCarriesTheSourceMatchedNativeSurface) {
-  const auto probes = KeyValuesProbes();
-  std::vector<std::string_view> ids;
-  for (const auto& probe : probes) {
-    ids.push_back(probe.id);
-    EXPECT_FALSE(probe.pattern.empty()) << probe.id;
-    EXPECT_FALSE(probe.shape.empty()) << probe.id;
-  }
-  EXPECT_EQ(ids.size(), 3u);
-}
-
-TEST(KeyValuesTest, ProductionSurfaceResolvesFromASyntheticImage) {
-  const auto probes = KeyValuesProbes();
-  auto image = BuildImage(probes);
+TEST(KeyValuesTest, ResolveFillsEverySlotFromASyntheticImage) {
+  const auto image = BuildImage();
   auto resolved = ResolveKeyValuesCalls(image);
   ASSERT_TRUE(resolved.has_value()) << resolved.error();
-  EXPECT_NE(resolved->allocate, nullptr);
-  EXPECT_NE(resolved->construct_key_values, nullptr);
-  EXPECT_NE(resolved->set_key_value, nullptr);
-}
-
-TEST(KeyValuesTest, ResolveFillsEverySlotFromASyntheticImage) {
-  const auto [probes, owned_patterns] = SyntheticProbeTable();
-  auto image = BuildImage(probes);
-  auto resolved = ResolveKeyValuesCalls(image, probes);
-  ASSERT_TRUE(resolved.has_value()) << resolved.error();
-  EXPECT_NE(resolved->allocate, nullptr);
-  EXPECT_NE(resolved->construct_key_values, nullptr);
-  EXPECT_NE(resolved->set_key_value, nullptr);
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(resolved->allocate),
+            image.base() + image.OffsetOf("entity-keyvalues.allocate"));
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(resolved->construct_key_values),
+            image.base() + image.OffsetOf("entity-keyvalues.construct"));
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(resolved->set_key_value),
+            image.base() + image.OffsetOf("entity-keyvalues.set-key-value"));
 }
 
 TEST(KeyValuesTest, AllocationResolvesUpdatedBuildAmongSimilarWrappers) {
@@ -92,9 +57,8 @@ TEST(KeyValuesTest, AllocationResolvesUpdatedBuildAmongSimilarWrappers) {
             "48 8B 05 31 1C 86 00 48 8B D1 48 8B 08 48 8B 01 48 FF 60 08 "
             "CC CC CC CC CC CC CC CC CC CC CC CC "
             "48 8B 05 11 1C 86 00 4C 8B C9 4C 8B C2 49 8B D1");
-  for (const auto& probe : KeyValuesProbes()) {
-    if (probe.id != "entity-keyvalues.allocate") image.Add(probe.id, probe.pattern);
-  }
+  image.AddSignature("entity-keyvalues.construct");
+  image.AddSignature("entity-keyvalues.set-key-value");
   image.Seal(0x50000000);
   auto resolved = ResolveKeyValuesCalls(image);
   ASSERT_TRUE(resolved.has_value()) << resolved.error();
@@ -103,25 +67,17 @@ TEST(KeyValuesTest, AllocationResolvesUpdatedBuildAmongSimilarWrappers) {
 }
 
 TEST(KeyValuesTest, AllocationRefusesDuplicateMatches) {
-  const auto probes = KeyValuesProbes();
-  auto image = BuildImage(probes);
-  image.Add("duplicate-allocator", probes.front().pattern);
+  auto image = BuildImage();
+  image.AddSignature("entity-keyvalues.allocate");
   image.Seal(0x50000000);
   auto resolved = ResolveKeyValuesCalls(image);
   ASSERT_FALSE(resolved.has_value());
   EXPECT_NE(resolved.error().find("entity-keyvalues.allocate' matched 2 times"), std::string::npos);
 }
 
-TEST(KeyValuesTest, ResolveNamesAProbeMissingFromTheImage) {
-  auto [probes, owned_patterns] = SyntheticProbeTable();
-  gti::FakeModuleImage image;
-  for (const auto& probe : probes) {
-    if (probe.id != "entity-keyvalues.set-key-value") {
-      image.Add(probe.id, probe.pattern);
-    }
-  }
-  image.Seal(0x50000000);
-  auto resolved = ResolveKeyValuesCalls(image, probes);
+TEST(KeyValuesTest, ResolveNamesASignatureMissingFromTheImage) {
+  const auto image = BuildImage("entity-keyvalues.set-key-value");
+  auto resolved = ResolveKeyValuesCalls(image);
   ASSERT_FALSE(resolved.has_value());
   EXPECT_NE(resolved.error().find("entity-keyvalues.set-key-value"), std::string::npos)
       << resolved.error();

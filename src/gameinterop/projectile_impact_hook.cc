@@ -74,13 +74,9 @@ std::expected<ProjectileImpactHook, std::string> ProjectileImpactHook::Install(
 #if defined(_WIN32)
   if (g_hook || !handler)
     return std::unexpected("projectile impact hook already installed or empty");
-  auto target = ResolveScannedSymbol(
-      server, "projectile.impact",
-      "48 89 5C 24 10 48 89 6C 24 18 56 57 41 57 48 83 EC 50 44 8B 91 F8 07 00 00");
+  auto target = ResolveSignature(server, "projectile.impact");
   if (!target) return std::unexpected(target.error());
-  auto contact = ResolveScannedSymbol(
-      server, "projectile.contact",
-      "40 55 56 57 41 56 41 57 48 8D 6C 24 C0 48 81 EC 40 01 00 00 80 B9 21 08 00 00 00");
+  auto contact = ResolveSignature(server, "projectile.contact");
   if (!contact) return std::unexpected(contact.error());
   auto impl = std::make_unique<Impl>();
   impl->handler = std::move(handler);

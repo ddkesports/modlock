@@ -13,7 +13,6 @@
 #include "gameinterop_module_image_test.h"
 #include "gtest/gtest.h"
 #include "modlock/gameinterop/keyvalues.h"
-#include "modlock/render/world_text_probes.h"
 
 namespace {
 
@@ -174,13 +173,11 @@ WorldTextGameCalls RecordingCalls() {
 
 gti::FakeModuleImage BuildImage() {
   gti::FakeModuleImage image;
-  for (const auto& probe : modlock::render::WorldTextProbes()) {
-    if (!probe.pattern.empty()) {
-      image.Add(probe.id, probe.pattern);
-    }
-  }
-  for (const auto& probe : modlock::gameinterop::KeyValuesProbes()) {
-    image.Add(probe.id, probe.pattern);
+  for (const auto id : {"entity-system.create-entity-by-name", "entity-system.queue-spawn-entity",
+                        "entity-system.execute-queued-creation", "entity-instance.accept-input",
+                        "entity.remove", "entity-keyvalues.allocate", "entity-keyvalues.construct",
+                        "entity-keyvalues.set-key-value"}) {
+    image.AddSignature(id);
   }
   image.Seal(reinterpret_cast<std::uintptr_t>(&RecordTeleport));
   return image;

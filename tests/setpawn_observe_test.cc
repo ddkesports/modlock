@@ -1,5 +1,4 @@
-// Contract tests for the SetPawn observation packet: the recorded signature
-// parses and scans exactly once against a synthetic blob, the payload format
+// Contract tests for the SetPawn observation packet: the payload format
 // matches the documented contract, and the install path fails closed when the
 // signature does not resolve. The hook itself only runs on the Windows host
 // build, so the offline tests exercise everything hookable offline.
@@ -8,33 +7,14 @@
 #include <gtest/gtest.h>
 
 #include <string>
-#include <vector>
 
 #include "gameinterop_module_image_test.h"
 #include "modlock/gameinterop/game_symbols.h"
-#include "modlock/gameinterop/signature.h"
 
 namespace {
 
-using modlock::gameinterop::ParseSignature;
 using modlock::gameinterop::SetPawnObservation;
-using modlock::gameinterop::Signature;
-using modlock::gameinterop::SignatureScan;
 using modlock::gameinterop::testing::FakeModuleImage;
-
-TEST(SetPawnObserveTest, SignatureParsesAndMatchesExactlyOnce) {
-  auto parsed = ParseSignature("player-controller.set-pawn", SetPawnObservation::kSetPawnPattern);
-  ASSERT_TRUE(parsed.has_value()) << parsed.error();
-
-  // Mirror how a live session scans the mapped module: the recorded pattern
-  // must land exactly once in a blob built from itself.
-  std::vector<uint8_t> blob = parsed->bytes;
-  blob.push_back(0xC3);
-  blob.push_back(0x90);
-  const auto hits = SignatureScan(blob, *parsed);
-  EXPECT_EQ(hits.size(), 1u);
-  EXPECT_EQ(hits.front(), 0u);
-}
 
 TEST(SetPawnObserveTest, PayloadFormatMatchesTheDocumentedContract) {
   // The live capture classifies the flag truth table from these exact fields:

@@ -4,22 +4,11 @@
 #include <expected>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "modlock/export.h"
 #include "modlock/gameinterop/game_symbols.h"
 
 namespace modlock::gameinterop {
-
-// Recorded server.dll signatures, shared with the ghost probe catalog.
-struct HeroDefinitionProbe {
-  std::string_view id;
-  std::string_view library;
-  std::string_view pattern;
-  std::string_view shape;
-};
-
-[[nodiscard]] MODLOCK_API std::vector<HeroDefinitionProbe> HeroDefinitionProbes();
 
 struct MODLOCK_API HeroDefinitionCalls {
   void* (*manager_getter)() = nullptr;

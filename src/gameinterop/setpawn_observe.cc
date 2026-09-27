@@ -118,7 +118,7 @@ std::expected<SetPawnObservation, std::string> SetPawnObservation::Install(
 #if defined(_WIN32)
   // Stage 1: locate SetPawn. Zero or multiple matches fail loud: an engine
   // update that shifts the pattern must stop here, not mis-hook.
-  auto target = ResolveScannedSymbol(server, "player-controller.set-pawn", kSetPawnPattern);
+  auto target = ResolveSignature(server, "controller.set-pawn");
   if (!target.has_value()) {
     return std::unexpected(target.error());
   }

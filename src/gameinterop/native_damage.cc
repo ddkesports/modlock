@@ -12,15 +12,9 @@ namespace modlock::gameinterop {
 std::expected<NativeDamage, std::string> NativeDamage::Resolve(const ModuleImage& server,
                                                                void* schema_system) {
   NativeDamage calls;
-  auto construct = ResolveScannedSymbol(server, "damage.construct",
-                                        "40 53 48 83 EC 50 F3 0F 10 84 24 80 00 00 00 48 8D 05");
-  auto destroy =
-      ResolveScannedSymbol(server, "damage.destroy",
-                           "48 89 5C 24 08 57 48 83 EC 20 48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 "
-                           "48 81 C1 FC 00 00 00 E8 ?? ?? ?? ?? 8B 83 F4 00 00 00");
-  auto damage = ResolveScannedSymbol(server, "entity.take-damage",
-                                     "40 55 41 54 41 55 41 56 41 57 48 81 EC ?? ?? ?? ?? 48 8D 6C "
-                                     "24 ?? 48 89 9D ?? ?? ?? ?? 45 33 ED");
+  auto construct = ResolveSignature(server, "damage.construct");
+  auto destroy = ResolveSignature(server, "damage.destroy");
+  auto damage = ResolveSignature(server, "entity.take-damage");
   if (!construct) return std::unexpected(construct.error());
   if (!destroy) return std::unexpected(destroy.error());
   if (!damage) return std::unexpected(damage.error());

@@ -14,12 +14,6 @@
 namespace modlock::gameinterop {
 namespace {
 
-// kProcessMovement is CPlayer_MovementServices::ProcessMovement. The server and
-// client modules share its prologue; each module has exactly one match.
-constexpr const char* kProcessMovement =
-    "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 70 48 8D 05 ?? ?? ?? ?? "
-    "48 C7 44 24 28 F8 03 00 00";
-
 // CMoveData has no schema. These offsets were observed in both modules of the
 // September 18 2026 build by recording scripted input, prediction replays and
 // solver output against schema-resolved pawn state.
@@ -196,7 +190,7 @@ std::expected<MovementHook, std::string> MovementHook::Install(Module module, Ha
   const auto image =
       MappedModuleImage::ForModule(module == Module::kServer ? L"server.dll" : L"client.dll");
   if (!image) return std::unexpected(image.error());
-  auto target = ResolveScannedSymbol(*image, "movement.process", kProcessMovement);
+  auto target = ResolveSignature(*image, "movement.process");
   if (!target) return std::unexpected(target.error());
   auto impl = std::make_unique<Impl>();
   impl->handler = std::move(handler);

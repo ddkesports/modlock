@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "modlock/gameinterop/entity_abi.h"
-#include "modlock/render/world_text_probes.h"
 
 namespace modlock::render {
 namespace {
@@ -35,13 +34,6 @@ bool IsShippedEffect(std::string_view effect_name) {
   return false;
 }
 
-std::string_view ProbePattern(std::string_view id) {
-  for (const auto& probe : WorldTextProbes()) {
-    if (probe.id == id) return probe.pattern;
-  }
-  return {};
-}
-
 struct alignas(8) StringVariant {
   const char* value;
   void* citadel_pad[2]{};
@@ -63,29 +55,22 @@ void Teleport(void* entity, const modlock::Vec3& origin, const std::array<float,
 
 std::expected<std::unique_ptr<WorldEffectGameFactory>, std::string>
 WorldEffectGameFactory::TryCreate(const modlock::gameinterop::ModuleImage& server) {
-  auto resolve = [&server](std::string_view id) {
-    return modlock::gameinterop::ResolveScannedSymbol(server, id, ProbePattern(id));
-  };
   WorldEffectGameCalls calls;
-  if (auto address = resolve("entity-system.create-entity-by-name")) {
-    calls.create_entity_by_name = reinterpret_cast<decltype(calls.create_entity_by_name)>(
-        reinterpret_cast<std::uintptr_t>(*address));
-  } else {
-    return std::unexpected(address.error());
-  }
   struct Entry {
     std::string_view id;
     void** slot;
   };
   const Entry entries[] = {
+      {"entity-system.create-entity-by-name",
+       reinterpret_cast<void**>(&calls.create_entity_by_name)},
       {"entity-system.queue-spawn-entity", reinterpret_cast<void**>(&calls.queue_spawn_entity)},
       {"entity-system.execute-queued-creation",
        reinterpret_cast<void**>(&calls.execute_queued_creation)},
       {"entity-instance.accept-input", reinterpret_cast<void**>(&calls.accept_input)},
-      {"util.remove", reinterpret_cast<void**>(&calls.util_remove)},
+      {"entity.remove", reinterpret_cast<void**>(&calls.util_remove)},
   };
   for (const auto& entry : entries) {
-    if (auto address = resolve(entry.id)) {
+    if (auto address = modlock::gameinterop::ResolveSignature(server, entry.id)) {
       *entry.slot = *address;
     } else {
       return std::unexpected(address.error());

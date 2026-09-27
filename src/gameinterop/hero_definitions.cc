@@ -2,67 +2,22 @@
 
 #include <limits>
 
-#include "modlock/gameinterop/signature.h"
-
 namespace modlock::gameinterop {
-namespace {
-
-// ProbePattern finds one recorded HeroDefinitionProbes() entry by id.
-std::string_view ProbePattern(std::string_view id) {
-  for (const auto& probe : HeroDefinitionProbes()) {
-    if (probe.id == id) {
-      return probe.pattern;
-    }
-  }
-  return {};
-}
-
-}  // namespace
-
-std::vector<HeroDefinitionProbe> HeroDefinitionProbes() {
-  return {
-      {.id = "hero-definition-manager.get-manager-anchor",
-       .library = "server.dll",
-       .pattern = "40 53 56 41 55 48 83 EC 30 8B DA 48 8B F1 E8",
-       .shape = "anchor for the TLS-guarded manager getter; the E8 call at +0xE resolves "
-                "CHeroDefinitionManager* GetManager()"},
-      {.id = "hero-definition-manager.hero-name-to-id",
-       .library = "server.dll",
-       .pattern = "48 89 5C 24 ?? 57 48 83 EC ?? 49 8B C8",
-       .shape = "int* HeroNameToId(CHeroDefinitionManager* this, int* outId, const char* name)"},
-      {.id = "hero-definition-manager.get-hero-by-id",
-       .library = "server.dll",
-       .pattern = "48 8B C1 85 D2 74 04 3B 11 72 03 33 C0 C3 48 8B 40 08 48 63 CA 48 8B 04 C8 C3",
-       .shape = "CHeroDefinition* GetHeroById(CHeroDefinitionManager* this, unsigned int heroId)"},
-  };
-}
-
 std::expected<HeroDefinitions, std::string> HeroDefinitions::Resolve(const ModuleImage& server) {
   HeroDefinitionCalls calls;
-  // The anchor's E8 call sits 0xE bytes into the match per the recorded
-  // shape; its target is the TLS-guarded CHeroDefinitionManager getter.
-  // DecodeRelativeCall re-walks the pattern, which already proved unique.
-  constexpr size_t kManagerAnchorCallDelta = 0xE;
-  constexpr std::string_view kAnchorId = "hero-definition-manager.get-manager-anchor";
-  if (auto target =
-          DecodeRelativeCall(server, kAnchorId, ProbePattern(kAnchorId), kManagerAnchorCallDelta)) {
-    calls.manager_getter = reinterpret_cast<void* (*)()>(reinterpret_cast<std::uintptr_t>(*target));
-  } else {
-    return std::unexpected(target.error());
-  }
-  constexpr std::string_view kNameToId = "hero-definition-manager.hero-name-to-id";
-  constexpr std::string_view kGetById = "hero-definition-manager.get-hero-by-id";
-  if (auto address = ResolveScannedSymbol(server, kNameToId, ProbePattern(kNameToId))) {
-    calls.hero_name_to_id = reinterpret_cast<int* (*)(void*, int*, const char*)>(
-        reinterpret_cast<std::uintptr_t>(*address));
-  } else {
-    return std::unexpected(address.error());
-  }
-  if (auto address = ResolveScannedSymbol(server, kGetById, ProbePattern(kGetById))) {
-    calls.get_hero_by_id =
-        reinterpret_cast<void* (*)(void*, unsigned)>(reinterpret_cast<std::uintptr_t>(*address));
-  } else {
-    return std::unexpected(address.error());
+  struct Entry {
+    std::string_view id;
+    void** slot;
+  };
+  const Entry entries[] = {
+      {"hero-definition-manager.get-manager", reinterpret_cast<void**>(&calls.manager_getter)},
+      {"hero-definition-manager.hero-name-to-id", reinterpret_cast<void**>(&calls.hero_name_to_id)},
+      {"hero-definition-manager.get-hero-by-id", reinterpret_cast<void**>(&calls.get_hero_by_id)},
+  };
+  for (const auto& entry : entries) {
+    auto address = ResolveSignature(server, entry.id);
+    if (!address) return std::unexpected(address.error());
+    *entry.slot = *address;
   }
   return HeroDefinitions(calls);
 }

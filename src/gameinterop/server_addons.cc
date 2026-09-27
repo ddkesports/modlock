@@ -12,10 +12,6 @@
 namespace modlock::gameinterop {
 namespace {
 #if defined(_WIN32)
-// kReplyConnection is CNetworkGameServerBase::ReplyConnection in engine2.dll.
-// It is unique in the 6698 build and the September 22 SDK build.
-constexpr const char* kReplyConnection = "48 8B C4 55 41 55 41 56";
-
 // kAddonsOffset is the server's addons CUtlString, whose only field is its
 // character pointer. ReplyConnection copies it into the connection reply.
 constexpr size_t kAddonsOffset = 0x158;
@@ -61,7 +57,7 @@ std::expected<ServerAddonsHook, std::string> ServerAddonsHook::Install(std::stri
   if (g_detour != nullptr) return std::unexpected("server addons hook already installed");
   const auto image = MappedModuleImage::ForModule(L"engine2.dll");
   if (!image) return std::unexpected(image.error());
-  auto target = ResolveScannedSymbol(*image, "server.reply-connection", kReplyConnection);
+  auto target = ResolveSignature(*image, "server.reply-connection");
   if (!target) return std::unexpected(target.error());
   auto impl = std::make_unique<Impl>();
   impl->addons = std::move(addons);
