@@ -34,11 +34,11 @@ struct Fixture {
     unrelated = data;
     const char* other = "other";
     std::memcpy(unrelated.data(), &other, sizeof(other));
-    registry[0x42] = 3;
+    registry[0x4a] = 3;
     registry[0x43] = 0x80;  // External-buffer bit is not capacity.
-    registry[0x50] = 2;
+    registry[0x58] = 2;
     auto* base = entries.data();
-    std::memcpy(registry.data() + 0x48, &base, sizeof(base));
+    std::memcpy(registry.data() + 0x50, &base, sizeof(base));
     Link(2, unrelated.data(), 0xffff, 0);
     Link(0, data.data(), 2, 0xffff);
   }

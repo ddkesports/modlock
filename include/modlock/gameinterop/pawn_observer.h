@@ -182,13 +182,15 @@ using SetUpgradeBits = void (*)(void* ability, uint32_t bits);
 MODLOCK_API std::expected<SetUpgradeBits, std::string> ResolveSetUpgradeBits(
     const ModuleImage& server);
 
-using CreateAbility = void* (*)(void* component, void* definition, uint16_t slot, int32_t flags,
-                                int32_t upgrade_level, int32_t register_ability);
+// upgrade carries the initial upgrade bits in its low word; extra is an optional
+// KeyValues3 node merged into the ability's spawn keyvalues.
+using CreateAbility = void* (*)(void* component, void* definition, uint16_t slot, uint64_t upgrade,
+                                bool flag, void* extra);
 MODLOCK_API std::expected<CreateAbility, std::string> ResolveCreateAbility(
     const ModuleImage& server);
 
 struct MODLOCK_API ItemFunctions {
-  using Add = void* (*)(void* pawn, const char* name, int32_t bits, int32_t context);
+  using Add = void* (*)(void* pawn, const char* name, uint64_t upgrade, void* extra);
   using Remove = void (*)(void* component, void* item, uint8_t flag);
   using SwapSlots = void (*)(void* component, uint16_t first, uint16_t second);
   Add add = nullptr;

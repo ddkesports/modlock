@@ -12,6 +12,7 @@
 #include "modlock/gameinterop/connection_tracker.h"
 #include "modlock/gameinterop/mapped_module_image.h"
 #include "modlock/gameinterop/thunk_owner.h"
+#include "native_network_messages.h"
 #include "proto/modlock/chat.pb.h"
 
 #if defined(_WIN32)
@@ -30,8 +31,8 @@ constexpr std::array<std::string_view, 10> kPlayerChatAudiences{
     "Cstrike_Chat_T_Loc",   "Cstrike_Chat_Spec"};
 
 #if defined(_WIN32)
-// Source SDK networksystem/inetworkserializer.h and tier1/bitbuf.h define
-// serializer slots 2/7 and this bf_write. Installed message IDs are 32-bit.
+// Source SDK networksystem/inetworkmessages.h and tier1/bitbuf.h define the
+// serialize slot and this bf_write. Installed message IDs are 32-bit.
 // The engine serializes its own protobuf; only bytes cross the protobuf ABI.
 struct BitWriter {
   uint8_t* data;
@@ -49,30 +50,32 @@ static_assert(sizeof(BitWriter) == 40);
 using Post = void (*)(void*, int32_t, bool, int32_t, const uint64_t*, void*, const void*,
                       unsigned long, int32_t);
 Post g_original = nullptr;
+void* g_messages = nullptr;
 NativeChatHook::Handler* g_handler = nullptr;
 DWORD g_thread = 0;
 
 // Preserve call-through for a dispatch already entering the old thunk.
 void ClearThunkState() {
   g_handler = nullptr;
+  g_messages = nullptr;
   g_thread = 0;
 }
 
 std::optional<NativeChatHook::Message> ReadChat(void* serializer, const void* native_message) {
-  if (!serializer || !native_message) return {};
-  const auto methods = *static_cast<void***>(serializer);
-  using Info = const uint8_t* (*)(void*);
-  const auto* info = reinterpret_cast<Info>(methods[2])(serializer);
+  if (!serializer || !native_message || !g_messages) return {};
   int32_t id = 0;
   SIZE_T copied = 0;
-  if (!info || !ReadProcessMemory(GetCurrentProcess(), info + 24, &id, sizeof(id), &copied) ||
+  if (!ReadProcessMemory(GetCurrentProcess(),
+                         static_cast<const uint8_t*>(serializer) + kSerializerMessageIdOffset, &id,
+                         sizeof(id), &copied) ||
       copied != sizeof(id) || (id != kPlayerChatMessageId && id != kChatMessageId))
     return {};
   std::array<uint8_t, 4096> bytes{};
   BitWriter writer{bytes.data(), static_cast<int32_t>(bytes.size()),
                    static_cast<int32_t>(bytes.size() * 8)};
   using Serialize = bool (*)(void*, BitWriter&, const void*);
-  if (!reinterpret_cast<Serialize>(methods[7])(serializer, writer, native_message) ||
+  if (!NetworkMessagesMethod<Serialize>(g_messages, kNetworkMessagesSerializeSlot)(
+          g_messages, writer, native_message) ||
       writer.overflow || writer.cursor <= 0 || writer.cursor > writer.bits || writer.cursor % 8) {
     std::fprintf(stderr, "[modlock] native chat serialization failed\n");
     return {};
@@ -145,11 +148,14 @@ std::expected<NativeChatHook, std::string> NativeChatHook::Install(Handler handl
   const auto resolved = ResolveEngineInterface(L"engine2.dll", "GameEventSystemServerV001");
   if (!resolved) return std::unexpected(resolved.error());
   void* events = *resolved;
+  const auto messages = ResolveEngineInterface(L"networksystem.dll", "NetworkMessagesVersion001");
+  if (!messages) return std::unexpected(messages.error());
   auto impl = std::make_unique<Impl>();
   impl->handler = std::move(handler);
   auto hook = VtableSlotHook::Install(events, 16, reinterpret_cast<void*>(&PostThunk));
   if (!hook) return std::unexpected(hook.error());
   g_original = reinterpret_cast<Post>(hook->Original());
+  g_messages = *messages;
   impl->owner.emplace(std::move(*hook), &ClearThunkState);
   g_thread = GetCurrentThreadId();
   g_handler = &impl->handler;

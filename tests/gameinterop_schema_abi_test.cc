@@ -111,7 +111,7 @@ TEST(FindDeclaredClassOf, RejectsAnUnresolvedTypeScope) {
 // Independently encoded SchemaClassInfoData_t / SchemaClassFieldData_t layout
 // (sourcesdk public/schemasystem/schematypes.h:330-397). Drift between these
 // constants and the production mirror fails resolution here.
-constexpr size_t kInfoFields = 0x28;
+constexpr size_t kInfoFields = 0x30;
 constexpr size_t kFieldStride = 32;
 constexpr size_t kFieldNameOffset = 0x00;
 constexpr size_t kFieldOffsetField = 0x10;
@@ -167,10 +167,10 @@ TEST(SchemaLayout, FieldWalkResolvesOffsetAndNetworkedFlag) {
               sizeof(metadata_base));
 
   const int class_size = 0x600;
-  constexpr size_t kInfoSize = 0x18;  // SchemaClassInfoData_t::m_nSize
+  constexpr size_t kInfoSize = 0x20;  // SchemaClassInfoData_t::m_nSize
   std::memcpy(buffers.info.data() + kInfoSize, &class_size, sizeof(class_size));
   uint16_t field_count = 2;
-  constexpr size_t kInfoFieldCount = 0x1C;  // SchemaClassInfoData_t::m_nFieldCount
+  constexpr size_t kInfoFieldCount = 0x24;  // SchemaClassInfoData_t::m_nFieldCount
   std::memcpy(buffers.info.data() + kInfoFieldCount, &field_count, sizeof(field_count));
   unsigned char* fields_base = buffers.fields.data();
   std::memcpy(buffers.info.data() + kInfoFields, &fields_base, sizeof(fields_base));
@@ -206,23 +206,23 @@ TEST(SchemaLayout, FieldWalkResolvesOffsetAndNetworkedFlag) {
 // ---- Fake-schema paths through SchemaFieldOf: exact class, exact field,
 // base-class walk, storage span, and named errors. ----
 
-// BuildClassInfo encodes one SchemaClassInfoData_t mirror: size at 0x18,
-// field count at 0x1C, base-class count at 0x21, fields pointer at 0x28,
-// base-classes pointer at 0x30.
+// BuildClassInfo encodes one SchemaClassInfoData_t mirror: size at 0x20,
+// field count at 0x24, base-class count at 0x29, fields pointer at 0x30,
+// base-classes pointer at 0x38.
 struct ClassInfoBuffers {
   std::array<unsigned char, 0x40> info{};
   std::array<unsigned char, 2 * kFieldStride> fields{};
   std::array<unsigned char, 16> bases{};
 
-  void set_class_size(int size) { std::memcpy(info.data() + 0x18, &size, sizeof(size)); }
-  void set_field_count(uint16_t count) { std::memcpy(info.data() + 0x1C, &count, sizeof(count)); }
-  void set_base_count(uint8_t count) { std::memcpy(info.data() + 0x21, &count, sizeof(count)); }
+  void set_class_size(int size) { std::memcpy(info.data() + 0x20, &size, sizeof(size)); }
+  void set_field_count(uint16_t count) { std::memcpy(info.data() + 0x24, &count, sizeof(count)); }
+  void set_base_count(uint8_t count) { std::memcpy(info.data() + 0x29, &count, sizeof(count)); }
   void set_fields_pointer(unsigned char* fields_base) {
     std::memcpy(info.data() + kInfoFields, &fields_base, sizeof(fields_base));
   }
   void set_bases_pointer(std::array<unsigned char, 16>* bases_base) {
     auto* pointer = bases_base->data();
-    std::memcpy(info.data() + 0x30, &pointer, sizeof(pointer));
+    std::memcpy(info.data() + 0x38, &pointer, sizeof(pointer));
   }
   void set_field(size_t index, const char* name, int offset) {
     std::memcpy(fields.data() + index * kFieldStride + kFieldNameOffset, &name, sizeof(name));
@@ -357,7 +357,8 @@ TEST(SchemaFieldOfPaths, FieldOnTheBaseClassResolvesThroughTheWalk) {
   ASSERT_TRUE(field.has_value()) << field.error();
   EXPECT_EQ(field->offset, static_cast<size_t>(0x7EC));
   EXPECT_EQ(field->size, static_cast<size_t>(0x7F0 - 0x7EC));
-  EXPECT_FALSE(field->networked);
+  // Without MNetworkDisable a field may be networked.
+  EXPECT_TRUE(field->networked);
 }
 
 TEST(SchemaFieldOfPaths, ZeroSizedStorageSpanIsAnError) {

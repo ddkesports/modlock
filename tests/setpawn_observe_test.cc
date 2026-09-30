@@ -47,7 +47,7 @@ TEST(SetPawnObserveTest, InstallFailsClosedWhenTheSignatureDoesNotResolve) {
   ASSERT_FALSE(observation.has_value());
   EXPECT_FALSE(observation.error().empty()) << observation.error();
 #if defined(_WIN32)
-  EXPECT_NE(observation.error().find("player-controller.set-pawn"), std::string::npos)
+  EXPECT_NE(observation.error().find("controller.set-pawn"), std::string::npos)
       << observation.error();
 #endif
 }

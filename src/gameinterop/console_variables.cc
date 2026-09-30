@@ -8,14 +8,14 @@
 namespace modlock::gameinterop {
 namespace {
 
-// CCvar's CUtlLinkedList<ConVarData*> uses CUtlLeanVector storage.
-// Installed tier0.dll GetConVarData RVA 0x6be30 and Next RVA 0x6c240
-// confirm capacity bits +0x42, entries +0x48, stride 16, next +0xa;
-// First RVA 0x6c100 reads head +0x50. Public iteration and FindConVar
-// filter DEVELOPMENTONLY entries, so discovery follows the registry itself.
-constexpr size_t kCapacityOffset = 0x42;
-constexpr size_t kEntriesOffset = 0x48;
-constexpr size_t kHeadOffset = 0x50;
+// CCvar's CUtlLinkedList<ConVarData*> uses CUtlLeanVector storage. Since game
+// build 6711 ICvar stores the split-screen slot count after its vtable, so
+// tier0.dll's registry walkers read capacity bits +0x4a, entries +0x50,
+// stride 16, next +0xa and head +0x58. Public iteration and FindConVar filter
+// DEVELOPMENTONLY entries, so discovery follows the registry itself.
+constexpr size_t kCapacityOffset = 0x4a;
+constexpr size_t kEntriesOffset = 0x50;
+constexpr size_t kHeadOffset = 0x58;
 constexpr uint16_t kInvalidIndex = 0xffff;
 constexpr uint64_t kExposureFlags = (1ull << 1) | (1ull << 4) | (1ull << 32);
 

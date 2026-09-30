@@ -24,10 +24,10 @@ constexpr std::string_view kRemoveItem =
 // CBaseEntity's inner Teleport, which calls the absolute-state setters.
 constexpr std::string_view kTeleportInner =
     "4C 89 4C 24 20 4C 89 44 24 18 48 89 54 24 10 48 89 4C 24 08 53 55 56 57 "
-    "41 56 41 57 48 83 EC 78 48 8B 1A 33 F6";
+    "41 54 41 56 41 57 48 83 EC 60 48 8B 1A";
 
-// The citadel_force_koth callback: push rdi; sub rsp,30; mov rdi,[rip+disp32].
-constexpr std::string_view kForceKoth = "57 48 83 EC 30 48 8B 3D ?? ?? ?? ?? 48 85 FF";
+// The citadel_force_koth_spawn callback: push rsi; sub rsp,30; mov rsi,[rip+disp32].
+constexpr std::string_view kForceKoth = "40 56 48 83 EC 30 48 8B 35 ?? ?? ?? ?? 48 85 F6 0F 84";
 
 // The citadel_toggle_server_pause callback.
 constexpr std::string_view kTogglePause =
@@ -42,22 +42,22 @@ constexpr std::string_view kManifestBuilder =
 constexpr std::array kSignatures = {
     GameSignature{
         .id = "ability.create-and-register",
-        .pattern = "48 89 5C 24 ?? 44 89 4C 24 ?? 55 56 57 41 56 41 57 48 83 EC",
+        .pattern = "4C 89 4C 24 ?? 53 57 41 54 41 55 48 83 EC ?? 49 8B D9",
         .shape = "void* CreateAbility(CCitadelAbilityComponent*, definition, uint16 slot, "
-                 "int32 flags, ...)",
+                 "uint64 upgrade, bool, KeyValues3* extra)",
     },
     GameSignature{
         .id = "ability.detach-slot",
         .pattern = kRemoveItem,
         .target = kCall,
-        .delta = 0x8d,
+        .delta = 0x8b,
         .shape = "detaches the found ability slot inside RemoveItem",
     },
     GameSignature{
         .id = "ability.find-slot",
         .pattern = kRemoveItem,
         .target = kCall,
-        .delta = 0x7d,
+        .delta = 0x7b,
         .shape = "finds the ability slot inside RemoveItem",
     },
     GameSignature{
@@ -74,17 +74,24 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "ability.set-upgrade-bits",
-        .pattern = "48 8B C4 89 50 ?? 55 57 48 8D 68",
+        .pattern = "48 8B C4 55 57 48 8D 68 ?? 48 81 EC ?? ?? ?? ?? 48 89 58 ?? 41 B9",
         .shape = "void SetUpgradeBits(CCitadelBaseAbility*, uint32 bits)",
     },
     GameSignature{
+        .id = "ability.set-upgrade-low-word",
+        .pattern = "40 55 41 54 41 56 41 57 48 8B EC 48 83 EC ?? 44 8B F2 4C 8B E1 E8 ?? ?? ?? ?? "
+                   "44 8B F8 41 3B C6",
+        .shape = "void (CCitadelBaseAbility*, uint32 value); sets m_nUpgradeInfo's low word, "
+                 "which CreateAndRegisterAbility takes from its upgrade value's high dword",
+    },
+    GameSignature{
         .id = "ability.swap-item-slots",
-        .pattern = "66 41 3B D0 0F 84 ?? ?? ?? ?? 66 44 89 44 24 18 66 89 54 24 10 55 56 57",
+        .pattern = "66 41 3B D0 0F 84 ?? ?? ?? ?? 66 44 89 44 24 18 66 89 54 24 10 55 57 41 56",
         .shape = "void SwapItemSlots(CCitadelAbilityComponent*, uint16, uint16)",
     },
     GameSignature{
         .id = "ability.think",
-        .pattern = "40 55 53 41 54 41 55 41 57 48 8D AC 24",
+        .pattern = "48 89 4C 24 ?? 55 53 57 41 54 41 55 41 56 48 8D AC 24",
         .shape = "CCitadelBaseAbility::AbilityThink",
     },
     GameSignature{
@@ -127,15 +134,16 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "damage.destroy",
-        .pattern = "48 89 5C 24 08 57 48 83 EC 20 48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 "
-                   "48 81 C1 FC 00 00 00 E8 ?? ?? ?? ?? 8B 83 F4 00 00 00",
+        .pattern = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 33 ED 48 8D 05 "
+                   "?? ?? ?? ?? ?? ?? ?? 48 8B F9 F7 81",
         .shape = "CTakeDamageInfo destructor",
     },
     GameSignature{
         .id = "entity-instance.accept-input",
-        .pattern = "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 49 8B F0 48 8B D9",
+        .pattern = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 81 EC ?? ?? ?? ?? 4D 8B F0 48 "
+                   "8B F1",
         .shape = "bool AcceptInput(CEntityInstance*, const char* input, CEntityInstance* "
-                 "activator, CEntityInstance* caller, variant_t* value, int output_id, void*)",
+                 "activator, CEntityInstance* caller, variant_t* value)",
     },
     GameSignature{
         .id = "entity-keyvalues.allocate",
@@ -186,23 +194,26 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "entity.set-abs-angles",
-        .pattern = kTeleportInner,
+        // The inner Teleport inlines this setter; the pawn movement update after
+        // SetAbsOrigin still calls it.
+        .pattern = "E8 ?? ?? ?? ?? 48 8B 03 48 8B CB FF 90 ?? ?? ?? ?? 0F 28 74 24 ?? 84 C0 75 ?? "
+                   "48 8D 15 ?? ?? ?? ?? 48 8B CB E8",
         .target = kCall,
-        .delta = 0x427,
+        .delta = 0x24,
         .shape = "void SetAbsAngles(CBaseEntity*, const QAngle*)",
     },
     GameSignature{
         .id = "entity.set-abs-origin",
         .pattern = kTeleportInner,
         .target = kCall,
-        .delta = 0x472,
+        .delta = 0x4ed,
         .shape = "void SetAbsOrigin(CBaseEntity*, const Vector*)",
     },
     GameSignature{
         .id = "entity.set-abs-velocity",
         .pattern = kTeleportInner,
         .target = kCall,
-        .delta = 0x452,
+        .delta = 0x4cd,
         .shape = "void SetAbsVelocity(CBaseEntity*, const Vector*)",
     },
     GameSignature{
@@ -213,8 +224,7 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "entity.take-damage",
-        .pattern = "40 55 41 54 41 55 41 56 41 57 48 81 EC ?? ?? ?? ?? 48 8D 6C 24 ?? 48 89 9D "
-                   "?? ?? ?? ?? 45 33 ED",
+        .pattern = "40 55 53 56 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 49 8B D8",
         .shape = "CBaseEntity::TakeDamageOld(CTakeDamageInfo*)",
     },
     GameSignature{
@@ -226,7 +236,7 @@ constexpr std::array kSignatures = {
         .id = "game-rules.current",
         .pattern = kForceKoth,
         .target = kRipRelative,
-        .delta = 5,
+        .delta = 6,
         .shape = "CCitadelGameRules** global loaded by the force-KOTH callback",
     },
     GameSignature{
@@ -259,7 +269,7 @@ constexpr std::array kSignatures = {
         .id = "game-rules.start-koth",
         .pattern = kForceKoth,
         .target = kCall,
-        .delta = 0xb0,
+        .delta = 0xcb,
         .shape = "void (CCitadelGameRules*); KOTH warning and spawn routine",
     },
     GameSignature{
@@ -292,26 +302,27 @@ constexpr std::array kSignatures = {
     GameSignature{
         .id = "movement.process",
         .modules = GameModule::kServer | GameModule::kClient,
+        // The source line stored at +0x1b changes between builds.
         .pattern = "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 70 48 8D 05 ?? ?? ?? ?? "
-                   "48 C7 44 24 28 F8 03 00 00",
+                   "48 C7 44 24 28 ?? ?? 00 00 48 89 44 24 20 4C 8D 44 24 40 0F 10 44 24 20 "
+                   "48 8D 05 ?? ?? ?? ?? 48 8B F2",
         .shape = "ProcessMovement(movement services, CMoveData*)",
     },
     GameSignature{
         .id = "pawn.add-item",
-        .pattern = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 30 48 8B D9 41 8B "
-                   "F1 B9 04 00 00 00 41",
-        .shape = "CCitadelBaseAbility* AddItem(CCitadelPlayerPawn*, const char* name, int32 bits, "
-                 "int32 context)",
+        .pattern = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 48 8B F9 49 8B E9 "
+                   "B9",
+        .shape = "CCitadelBaseAbility* AddItem(CCitadelPlayerPawn*, const char* name, uint64 "
+                 "upgrade, KeyValues3* extra)",
     },
     GameSignature{
         .id = "pawn.initialize-hero",
-        .pattern = "4C 8B DC 41 55 41 57 48 83 EC 58 0F B6 81 ?? ?? ?? ?? 44 0F B6 FA 83 C0 FE "
-                   "4C 8B E9",
+        .pattern = "40 55 41 56 48 83 EC ?? 0F B6 81",
         .shape = "CCitadelPlayerPawn::InitializeHeroOnPawn",
     },
     GameSignature{
         .id = "pawn.modify-currency",
-        .pattern = "48 89 5C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D AC 24",
+        .pattern = "48 89 5C 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8D 6C 24",
         .shape = "CCitadelPlayerPawn::ModifyCurrency",
     },
     GameSignature{
@@ -321,12 +332,12 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "pawn.respawn",
-        .pattern = "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 0F B6 FA 48 8B 89 A8 0B 00 00",
+        .pattern = "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 0F B6 FA 48 8B 89 ?? ?? 00 00 48 85 C9",
         .shape = "void Respawn(CCitadelPlayerPawn*, bool force)",
     },
     GameSignature{
         .id = "pawn.select-hero-internal",
-        .pattern = "40 55 41 54 41 55 41 56 48 8D 6C 24 88 48 81 EC 78 01 00 00 4C 8B E1 4C 8B EA",
+        .pattern = "40 55 41 54 41 55 41 56 48 8D AC 24",
         .shape = "void SelectHeroInternal(CCitadelPlayerPawn*, CHeroDefinition*)",
     },
     GameSignature{
@@ -337,29 +348,30 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "physics.trace-shape",
-        .pattern = "48 89 5C 24 ?? 48 89 4C 24 ?? 55 56 41 54",
+        .pattern = "48 89 54 24 ?? 48 89 4C 24 ?? 55 53 56 57 41 54 41 56 41 57 48 8D AC 24",
         .shape = "TraceShape(physics, Ray_t*, Vector* start, Vector* end, CTraceFilter*, "
                  "CGameTrace*)",
     },
     GameSignature{
         .id = "preparation.damage-gate",
-        .pattern = "44 38 AE E0 02 00 00 0F 84 ?? ?? ?? ?? 48 8B 4F 78 0F 57 FF",
+        .pattern = "80 BE E0 02 00 00 00 0F 84 ?? ?? ?? ?? 4C 89 A4 24",
         .shape = "TakeDamageOld's m_bTakesDamage test",
     },
     GameSignature{
         .id = "preparation.frozen-input",
-        .pattern = "F6 80 80 03 00 00 20 75 ?? 48 8D 54 24 ?? 48 8B CB E8",
+        .pattern = "F6 80 90 03 00 00 20 75 ?? 48 8D 94 24 ?? ?? ?? ?? 48 8B CE E8",
         .shape = "movement setup's FL_FROZEN test before it clears input",
     },
     GameSignature{
         .id = "projectile.contact",
-        .pattern = "40 55 56 57 41 56 41 57 48 8D 6C 24 C0 48 81 EC 40 01 00 00 80 B9 21 08 "
+        .pattern = "40 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? 00 00 80 B9 ?? ?? "
                    "00 00 00",
         .shape = "projectile contact handler",
     },
     GameSignature{
         .id = "projectile.impact",
-        .pattern = "48 89 5C 24 10 48 89 6C 24 18 56 57 41 57 48 83 EC 50 44 8B 91 F8 07 00 00",
+        .pattern = "48 89 5C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 50 44 8B 91 ?? ?? 00 00 "
+                   "45 33 FF 41 0F B6 D9",
         .shape = "projectile impact handler",
     },
     GameSignature{
