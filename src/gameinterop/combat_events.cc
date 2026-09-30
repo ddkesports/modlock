@@ -247,9 +247,16 @@ std::expected<DamageTakenEvent, std::string> DecodeDamageTaken(const void* event
   if (!read(static_cast<const unsigned char*>(result) + offsets.health_lost, &event.health_lost,
             sizeof(event.health_lost)) ||
       !read(static_cast<const unsigned char*>(result) + offsets.health_before, &event.health_before,
-            sizeof(event.health_before)) ||
-      !read(static_cast<const unsigned char*>(result) + offsets.damage_dealt, &event.damage_dealt,
-            sizeof(event.damage_dealt))) {
+            sizeof(event.health_before))) {
+    return std::unexpected(Unreadable(result, "the damage result fields"));
+  }
+  const auto* dealt = static_cast<const unsigned char*>(result) + offsets.damage_dealt;
+  if (offsets.damage_dealt_float) {
+    float value = 0;
+    if (!read(dealt, &value, sizeof(value)) || !std::isfinite(value))
+      return std::unexpected(Unreadable(result, "the damage result fields"));
+    event.damage_dealt = static_cast<int32_t>(std::lround(value));
+  } else if (!read(dealt, &event.damage_dealt, sizeof(event.damage_dealt))) {
     return std::unexpected(Unreadable(result, "the damage result fields"));
   }
   if (event.health_lost < 0 || event.health_before < 0 || event.damage_dealt < 0) {
@@ -360,6 +367,11 @@ std::expected<CombatEventsHook, std::string> CombatEventsHook::Install(
   size_t* slots[] = {&offsets.health_lost, &offsets.health_before, &offsets.damage_dealt};
   for (size_t i = 0; i < std::size(names); ++i) {
     auto field = SchemaFieldOf(schema_system, "server.dll", "CTakeDamageResult", names[i]);
+    if (!field && slots[i] == &offsets.damage_dealt) {
+      field = SchemaFieldOf(schema_system, "server.dll", "CTakeDamageResult",
+                            "m_flTotalledDamageDealt");
+      offsets.damage_dealt_float = field.has_value();
+    }
     if (!field) return std::unexpected(field.error());
     if (field->size < sizeof(int32_t)) {
       return std::unexpected(std::string("combat event: CTakeDamageResult field storage too "
