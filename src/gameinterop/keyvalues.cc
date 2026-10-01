@@ -55,10 +55,19 @@ struct RawKeyValues3 {
 };
 static_assert(sizeof(RawKeyValues3) == 16);
 
+// KeyValues3 metadata: external storage (bit 0), free-array-memory (bit 1),
+// TypeEx (bits 2-9), SubType (bits 10-17), cluster element (bits 18-33) and
+// the inline array count (bits 34-38). The September 2026 updates dropped
+// the 8-bit flags field that sat after SubType, moving the cluster element
+// from bit 26 to 18 and the array count from bit 42 to 34: server.dll and
+// client.dll of build 6723 write the count with shl 0x22 under the mask
+// 0xffffff83ffffffff and read it with shr 0x22 / and 0x1f. A count written at
+// bit 42 reads as zero, so colors and vectors silently become empty arrays.
+constexpr int kArrayCountShift = 34;
 constexpr std::uint64_t kTypeMask = 0xFFull << 2;
 constexpr std::uint64_t kSubtypeMask = 0xFFull << 10;
 constexpr std::uint64_t kFreeArrayMemoryMask = 1ull << 1;
-constexpr std::uint64_t kArrayCountMask = 0x1Full << 42;
+constexpr std::uint64_t kArrayCountMask = 0x1Full << kArrayCountShift;
 constexpr std::uint8_t kTypeNull = 1;
 constexpr std::uint8_t kTypeBool = 2;
 constexpr std::uint8_t kTypeInt = 3;
@@ -82,7 +91,7 @@ void SetFreshMetadata(RawKeyValues3& value, std::uint8_t type, std::uint8_t subt
   value.metadata &= ~(kTypeMask | kSubtypeMask | kFreeArrayMemoryMask | kArrayCountMask);
   value.metadata |= static_cast<std::uint64_t>(type) << 2;
   value.metadata |= static_cast<std::uint64_t>(subtype) << 10;
-  value.metadata |= static_cast<std::uint64_t>(array_count) << 42;
+  value.metadata |= static_cast<std::uint64_t>(array_count) << kArrayCountShift;
   value.data = 0;
 }
 

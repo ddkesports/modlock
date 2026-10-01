@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gameinterop_module_image_test.h"
@@ -221,7 +222,7 @@ TEST(KeyValuesTest, NativeSurfaceEncodesFreshMembersExactly) {
   EXPECT_EQ(font_size, 100.0);
   EXPECT_EQ(type(g_raw_members[4]), 0x88u);
   EXPECT_EQ(subtype(g_raw_members[4]), 28u);
-  EXPECT_EQ((g_raw_members[4].metadata >> 42) & 0x1F, 3u);
+  EXPECT_EQ((g_raw_members[4].metadata >> 34) & 0x1F, 3u);
   EXPECT_EQ(g_raw_members[4].data, 0xFF030201u);
 }
 
@@ -239,13 +240,43 @@ TEST(KeyValuesTest, NativeVectorBorrowsAllComponentsThroughQueuedCreation) {
   const auto& member = g_raw_members[0];
   EXPECT_EQ((member.metadata >> 2) & 0xFF, 0x48u);
   EXPECT_EQ((member.metadata >> 10) & 0xFF, 24u);
-  EXPECT_EQ((member.metadata >> 42) & 0x1F, 3u);
+  EXPECT_EQ((member.metadata >> 34) & 0x1F, 3u);
   EXPECT_EQ(member.metadata & (1ull << 1), 0u);
   const auto& vector = std::get<modlock::gameinterop::KeyValueVector>(pairs[0].value);
   EXPECT_EQ(member.data, reinterpret_cast<std::uintptr_t>(&vector.x));
   std::array<float, 3> consumed{};
   std::memcpy(consumed.data(), reinterpret_cast<const void*>(member.data), sizeof(consumed));
   EXPECT_EQ(consumed, (std::array<float, 3>{0.22f, 0.3f, 0.4f}));
+}
+
+// Build 6723's KeyValues3 metadata has no flags byte: the cluster element is
+// bits 18-33 and the array count bits 34-38 (the engine reads shr 0x22 & 0x1f).
+// The count must land there, and the member's cluster element must survive.
+TEST(KeyValuesTest, ArrayCountUsesTheBuild6723MetadataLayout) {
+  g_raw_member_count = 0;
+  KeyValuesCalls calls;
+  calls.allocate = &RecordAllocate;
+  calls.construct_key_values = &RecordConstruct;
+  calls.set_key_value = +[](void* ekv, const modlock::gameinterop::MemberName* name,
+                            unsigned char as_attribute) -> void* {
+    auto* member = static_cast<RawMember*>(RecordSetKeyValue(ekv, name, as_attribute));
+    member->metadata |= 0xBEEFull << 18;  // cluster element assigned by the arena
+    return member;
+  };
+  const EntityKeyValue pairs[] = {
+      {.key = "rendercolor",
+       .value = modlock::gameinterop::KeyValueColor{.red = 9, .green = 8, .blue = 7, .alpha = 6}},
+      {.key = "scales", .value = modlock::gameinterop::KeyValueVector{1.f, 2.f, 3.f}},
+  };
+  auto built = BuildEntityKeyValues(calls, pairs);
+  ASSERT_TRUE(built.has_value()) << built.error();
+  ASSERT_EQ(g_raw_member_count, 2u);
+  for (const auto& [member, count] :
+       {std::pair{g_raw_members[0], 4u}, std::pair{g_raw_members[1], 3u}}) {
+    EXPECT_EQ((member.metadata >> 34) & 0x1F, count);
+    EXPECT_EQ((member.metadata >> 18) & 0xFFFF, 0xBEEFu);
+    EXPECT_EQ(member.metadata >> 39, 0u) << "nothing may be written above the count";
+  }
 }
 
 TEST(KeyValuesTest, BuildNamesTheFirstMissingConstructor) {

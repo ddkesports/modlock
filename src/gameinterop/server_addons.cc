@@ -14,7 +14,9 @@ namespace {
 #if defined(_WIN32)
 // kAddonsOffset is the server's addons CUtlString, whose only field is its
 // character pointer. ReplyConnection copies it into the connection reply.
-constexpr size_t kAddonsOffset = 0x158;
+// Build 6723 moved it from 0x158: ReplyConnection (engine2 RVA 0xa0d20) reads
+// [server+0x178] twice and substitutes "" when it is null.
+constexpr size_t kAddonsOffset = 0x178;
 
 safetyhook::InlineHook* g_detour = nullptr;
 const char* g_addons = nullptr;
