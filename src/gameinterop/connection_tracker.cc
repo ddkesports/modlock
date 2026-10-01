@@ -136,7 +136,7 @@ void ConnectionTracker::Reset() {
 void ConnectionTracker::DispatchPutInServer(int32_t slot, uint64_t xuid, bool is_bot,
                                             const char* name, const EngineCallback& original,
                                             std::shared_ptr<ConnectionEventSink> sink) {
-  // These are connection receipts, not frame diagnostics. The playtest owner
+  // These are connection receipts, not frame diagnostics. The server operator
   // needs every join, including a full roster and later reconnects.
   if (InteropTraceEnabled()) {
     std::fprintf(stderr, "[modlock] interop trace: ClientPutInServer slot %d xuid %llu\n", slot,
