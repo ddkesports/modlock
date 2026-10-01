@@ -88,6 +88,11 @@ class MODLOCK_API WorldEntities {
   // RemoveNpc deletes one entity through UTIL_Remove without rewards. It
   // returns false when the handle no longer names a live entity.
   std::expected<bool, std::string> RemoveNpc(uint32_t handle);
+  // Move teleports one live NPC this class may spawn, for modes that steer
+  // units themselves each frame; false when it is gone.
+  std::expected<bool, std::string> Move(uint32_t handle, const std::array<float, 3>& position,
+                                        const std::array<float, 3>& facing,
+                                        const std::array<float, 3>& velocity);
   // SetHealth sets one live NPC's health and maximum; false when it is gone.
   std::expected<bool, std::string> SetHealth(uint32_t handle, int32_t health, int32_t max_health);
   // SubclassId is the VData subclass hash for an npc_units entry name, such as

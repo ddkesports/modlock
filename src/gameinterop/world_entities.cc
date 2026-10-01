@@ -421,6 +421,18 @@ std::expected<bool, std::string> WorldEntities::SetHealth(uint32_t handle, int32
   return true;
 }
 
+std::expected<bool, std::string> WorldEntities::Move(uint32_t handle,
+                                                     const std::array<float, 3>& position,
+                                                     const std::array<float, 3>& facing,
+                                                     const std::array<float, 3>& velocity) {
+  auto system = ResolveLiveEntitySystem();
+  if (!system) return std::unexpected(system.error());
+  void* entity = EntityInstance(*system, handle);
+  if (!entity || !IsSpawnableNpc(DesignerName(entity))) return false;
+  TeleportEntity(entity, position, facing, velocity);
+  return true;
+}
+
 std::expected<bool, std::string> WorldEntities::RemoveNpc(uint32_t handle) {
   auto system = ResolveLiveEntitySystem();
   if (!system) return std::unexpected(system.error());
