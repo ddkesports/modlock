@@ -1,6 +1,9 @@
 set(CMAKE_SYSTEM_NAME Windows)
 
 find_program(MODLOCK_ZIG_EXECUTABLE zig REQUIRED)
+# Compiler checks reload this file in their own projects. Forward the chosen
+# Zig so they use it even when zig is not on PATH.
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES MODLOCK_ZIG_EXECUTABLE)
 # Invoke Zig directly so archive rules work in both native Windows and Unix
 # cross-builds, including source distributed without executable mode bits.
 set(CMAKE_AR "${MODLOCK_ZIG_EXECUTABLE}" CACHE FILEPATH "" FORCE)
