@@ -19,6 +19,9 @@ struct WorldTextStyle {
   std::uint32_t color_abgr = 0xFFFFFFFFu;
   // face_camera rotates around the text's up axis; false uses its exact angles.
   bool face_camera = true;
+  // scale multiplies the text's world size without adding pixels, so large
+  // signs read from afar without outgrowing the entity's fixed panel.
+  float scale = 1.0f;
 };
 
 // WorldTextEntity is one owned point_worldtext handle. Remove ends its native

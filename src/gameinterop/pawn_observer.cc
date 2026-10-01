@@ -920,6 +920,34 @@ std::expected<ModifyCurrency, std::string> ResolveModifyCurrency(const ModuleIma
   return reinterpret_cast<ModifyCurrency>(*address);
 }
 
+std::expected<PawnObserver::Sample, std::string> PawnObserver::AdjustSouls(int32_t slot,
+                                                                           int32_t delta,
+                                                                           bool silent,
+                                                                           ModifyCurrency modify) {
+  auto before = Observe(slot);
+  if (!modify || !before || !before->currencies)
+    return std::unexpected("native wallet unavailable");
+  const auto balance = (*before->currencies)[0];
+  if (delta == 0) return *before;
+  if (delta < 0 && balance < -delta) return std::unexpected("not enough souls");
+  // EGold=0, ECheats=7. A grant forces gain; a spend only removes souls.
+  modify(PawnForSlot(slot), 0, delta, 7, silent ? 1 : 0, delta > 0 ? 1 : 0, delta < 0 ? 1 : 0,
+         nullptr, nullptr);
+  auto after = Observe(slot);
+  if (!after || after->pawn_handle != before->pawn_handle || !after->currencies)
+    return std::unexpected("native wallet changed owner during adjustment");
+  // Native gain modifiers may scale a grant; a spend must remove exactly delta.
+  const auto applied = (*after->currencies)[0] - balance;
+  if (delta < 0 ? applied != delta : applied <= 0) {
+    // A spend that removed a different amount is rolled back to the balance.
+    if (delta < 0 && applied != 0)
+      modify(PawnForSlot(slot), 0, -applied, 7, 1, applied < 0 ? 1 : 0, applied > 0 ? 1 : 0,
+             nullptr, nullptr);
+    return std::unexpected("native wallet did not apply the adjustment");
+  }
+  return *after;
+}
+
 std::expected<PawnObserver::Sample, std::string> PawnObserver::PrepareStartingSouls(
     int32_t slot, int32_t souls, ModifyCurrency modify) {
   auto before = Observe(slot);

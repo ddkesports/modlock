@@ -77,12 +77,30 @@ class MODLOCK_API WorldEntities {
   // returns how many entities were queued for removal.
   std::expected<size_t, std::string> Remove(std::string_view designer_name);
 
+  // Spawn adds one NPC beside the existing world and returns its handle. It
+  // accepts the restorable classes plus npc_trooper_boss (the lane Guardian).
+  // A health of zero keeps the subclass default. Call FinishSpawns on the next
+  // engine frame; it reapplies placement to spawns that are still alive.
+  std::expected<uint32_t, std::string> Spawn(const Target& target);
+  void FinishSpawns();
+  // ReadNpc samples one live NPC by handle; nullopt once it is gone or dead.
+  std::expected<std::optional<Sample>, std::string> ReadNpc(uint32_t handle) const;
+  // RemoveNpc deletes one entity through UTIL_Remove without rewards. It
+  // returns false when the handle no longer names a live entity.
+  std::expected<bool, std::string> RemoveNpc(uint32_t handle);
+  // SetHealth sets one live NPC's health and maximum; false when it is gone.
+  std::expected<bool, std::string> SetHealth(uint32_t handle, int32_t health, int32_t max_health);
+  // SubclassId is the VData subclass hash for an npc_units entry name, such as
+  // "trooper_melee" or "npc_boss_tier1".
+  static uint32_t SubclassId(std::string_view vdata_name);
+
  private:
   std::expected<Sample, std::string> ReadEntity(void* entity, std::string name) const;
   std::expected<void*, std::string> Create(const Target& target);
   std::expected<void, std::string> Apply(void* entity, const Target& target) const;
   Calls calls_;
   std::vector<Sample> pending_;
+  std::vector<Sample> spawned_;
 };
 
 }  // namespace modlock::gameinterop

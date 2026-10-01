@@ -392,6 +392,11 @@ class MODLOCK_API PawnObserver {
   // closed: an unresolvable modifier schema is an error, never a guessed write.
   std::expected<void, std::string> SetGhostVisible(int32_t slot, bool visible);
 
+  // AdjustSouls adds delta souls to the slot's wallet, or spends -delta. A
+  // spend larger than the balance fails without changing it. A visible grant
+  // plays the native soul pickup feedback; a silent one does not.
+  std::expected<Sample, std::string> AdjustSouls(int32_t slot, int32_t delta, bool silent,
+                                                 ModifyCurrency modify);
   // PrepareStartingSouls grants the shortfall to the selected starting wallet.
   // Existing funds and purchases survive; native progression owns earned levels.
   std::expected<Sample, std::string> PrepareStartingSouls(int32_t slot, int32_t souls,

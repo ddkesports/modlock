@@ -33,6 +33,12 @@ bool IsRestoredNpc(std::string_view name) {
          name == "npc_super_neutral" || name == "npc_neutral_sinners_sacrifice";
 }
 
+// IsSpawnableNpc adds the lane Guardian, whose designer class Restore never
+// reconciles, to the restorable NPC classes.
+bool IsSpawnableNpc(std::string_view name) {
+  return IsRestoredNpc(name) || name == "npc_trooper_boss";
+}
+
 bool IsPickup(std::string_view name) {
   return name == "citadel_item_pickup" || name == "citadel_item_pickup_idol";
 }
@@ -159,6 +165,7 @@ std::expected<std::vector<WorldEntities::Sample>, std::string> WorldEntities::Re
 
 std::expected<void, std::string> WorldEntities::Apply(void* entity, const Target& target) const {
   TeleportEntity(entity, target.position, target.facing, target.velocity);
+  if (target.health <= 0) return {};
   if (!RestorePawnHealth(entity, target.health, target.max_health))
     return std::unexpected("NPC health restoration failed");
   return {};
@@ -344,6 +351,84 @@ std::expected<size_t, std::string> WorldEntities::Remove(std::string_view design
     ++removed;
   }
   return removed;
+}
+
+uint32_t WorldEntities::SubclassId(std::string_view vdata_name) {
+  return MakeMemberName(vdata_name).hash;
+}
+
+std::expected<uint32_t, std::string> WorldEntities::Spawn(const Target& target) {
+  if (!IsSpawnableNpc(target.designer_name) || !target.subclass_id || target.team < 0 ||
+      target.team > 4 || target.health < 0 || target.max_health < target.health)
+    return std::unexpected("unsupported NPC spawn: " + target.designer_name);
+  for (const auto& vector : {target.position, target.facing, target.velocity})
+    for (float value : vector)
+      if (!std::isfinite(value)) return std::unexpected("NPC spawn motion is nonfinite");
+  auto created = Create(target);
+  if (!created) return std::unexpected(created.error());
+  // A spawn that fails after creation is removed, so no untracked NPC remains.
+  auto applied = Apply(*created, target);
+  if (!applied) {
+    calls_.remove(*created);
+    return std::unexpected(applied.error());
+  }
+  const auto handle = ReferenceHandleOf(*created);
+  if (!handle) {
+    calls_.remove(*created);
+    return std::unexpected("spawned NPC identity is absent");
+  }
+  spawned_.push_back({*handle, target});
+  return *handle;
+}
+
+void WorldEntities::FinishSpawns() {
+  auto system = ResolveLiveEntitySystem();
+  if (!system) return;
+  for (const auto& sample : spawned_) {
+    void* entity = EntityInstance(*system, sample.handle);
+    if (!entity) continue;
+    // A spawn killed on its first frame stays dead.
+    auto live = ReadEntity(entity, DesignerName(entity));
+    if (!live || live->state.health <= 0) continue;
+    (void)Apply(entity, sample.state);
+  }
+  spawned_.clear();
+}
+
+std::expected<std::optional<WorldEntities::Sample>, std::string> WorldEntities::ReadNpc(
+    uint32_t handle) const {
+  auto system = ResolveLiveEntitySystem();
+  if (!system) return std::unexpected(system.error());
+  void* entity = EntityInstance(*system, handle);
+  if (!entity) return std::nullopt;
+  auto name = DesignerName(entity);
+  if (!IsSpawnableNpc(name)) return std::nullopt;
+  auto sample = ReadEntity(entity, std::move(name));
+  if (!sample) return std::unexpected(sample.error());
+  if (sample->state.health <= 0) return std::nullopt;
+  return std::move(*sample);
+}
+
+std::expected<bool, std::string> WorldEntities::SetHealth(uint32_t handle, int32_t health,
+                                                          int32_t max_health) {
+  if (health <= 0 || max_health < health) return std::unexpected("NPC health is invalid");
+  auto system = ResolveLiveEntitySystem();
+  if (!system) return std::unexpected(system.error());
+  void* entity = EntityInstance(*system, handle);
+  if (!entity || !IsSpawnableNpc(DesignerName(entity))) return false;
+  if (!RestorePawnHealth(entity, health, max_health))
+    return std::unexpected("NPC health restoration failed");
+  return true;
+}
+
+std::expected<bool, std::string> WorldEntities::RemoveNpc(uint32_t handle) {
+  auto system = ResolveLiveEntitySystem();
+  if (!system) return std::unexpected(system.error());
+  void* entity = EntityInstance(*system, handle);
+  // Only an NPC this class may spawn is removed; any other entity is refused.
+  if (!entity || !IsSpawnableNpc(DesignerName(entity))) return false;
+  calls_.remove(entity);
+  return true;
 }
 
 }  // namespace modlock::gameinterop
