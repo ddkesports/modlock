@@ -148,6 +148,9 @@ struct DamageResultOffsets {
   size_t damage_dealt = 0;
   // ability reads CTakeDamageInfo, not CTakeDamageResult, when configured.
   std::optional<size_t> ability;
+  // Game build 6711 replaced the int32 m_nDamageDealt with the float
+  // m_flTotalledDamageDealt; the decoder rounds it into damage_dealt.
+  bool damage_dealt_float = false;
 };
 
 // ProcessDamageContact decodes PreDamageTaken. Suppression blocks health,

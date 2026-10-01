@@ -839,15 +839,18 @@ struct ItemFixture {
     return current->definition.data();
   }
   static modlock::gameinterop::ItemFunctions Functions() {
-    return {+[](void* pawn, const char* name, int32_t bits, int32_t context) -> void* {
+    return {+[](void* pawn, const char* name, uint64_t upgrade, void* extra) -> void* {
               auto& f = *current;
               EXPECT_EQ(pawn, f.pawn.data());
               EXPECT_STREQ(name, "upgrade_new");
-              EXPECT_EQ(context, -1);
+              EXPECT_EQ(extra, nullptr);
               ++f.adds;
               if (f.apply) {
                 f.InitAbility(f.item, 201, 4);
-                const uint32_t packed = (static_cast<uint32_t>(bits) << 16) | 1;
+                // The upgrade's low word holds the bits; its high dword the
+                // packed low word.
+                const uint32_t packed =
+                    (static_cast<uint32_t>(upgrade & 0xffff) << 16) | uint32_t(upgrade >> 32);
                 std::memcpy(f.item.data() + 0x3c, &packed, 4);
                 f.handles[1] = HandleOf(4, 10);
                 f.SetCount(2);
@@ -879,12 +882,12 @@ TEST(PawnObserver, GrantsAnItemOnceAndPreservesTheExistingLoadout) {
   ASSERT_TRUE(observer.Observe());
   modlock::gameinterop::AbilityDefinitions definitions(ItemFixture::Lookup);
   auto functions = ItemFixture::Functions();
-  functions.add = +[](void* pawn, const char* name, int32_t bits, int32_t context) -> void* {
+  functions.add = +[](void* pawn, const char* name, uint64_t upgrade, void* extra) -> void* {
     auto& fixture = *ItemFixture::current;
     EXPECT_EQ(pawn, fixture.pawn.data());
     EXPECT_STREQ(name, "upgrade_new");
-    EXPECT_EQ(bits, 0);
-    EXPECT_EQ(context, -1);
+    EXPECT_EQ(upgrade, 0u);
+    EXPECT_EQ(extra, nullptr);
     ++fixture.adds;
     fixture.InitAbility(fixture.granted_item, 201, 4);
     fixture.handles[2] = HandleOf(5, 11);
@@ -987,15 +990,15 @@ TEST(PawnObserver, ReconcilesMissingAuxiliaryAbilityThroughItsNativeOwner) {
   ASSERT_TRUE(observer.Observe());
   modlock::gameinterop::AbilityDefinitions definitions(ItemFixture::Lookup);
   const std::array targets{modlock::gameinterop::AbilityUpgrade{100, 8, 65537}};
-  const auto create = +[](void* component, void* definition, uint16_t slot, int32_t flags,
-                          int32_t level, int32_t registered) -> void* {
+  const auto create = +[](void* component, void* definition, uint16_t slot, uint64_t upgrade,
+                          bool flag, void* extra) -> void* {
     auto& fixture = *ItemFixture::current;
     EXPECT_EQ(component, fixture.pawn.data() + 0x48);
     EXPECT_EQ(definition, fixture.definition.data());
     EXPECT_EQ(slot, 8);
-    EXPECT_EQ(flags, 0);
-    EXPECT_EQ(level, -1);
-    EXPECT_EQ(registered, 1);
+    EXPECT_EQ(upgrade, 0u);
+    EXPECT_TRUE(flag);
+    EXPECT_EQ(extra, nullptr);
     ++fixture.adds;
     if (fixture.apply) {
       fixture.InitAbility(fixture.hero, 100, slot);
@@ -1348,8 +1351,8 @@ TEST(PawnObserver, PlayerSelectionStopsAfterTeamCallbackLosesConnection) {
   fixture.generation = 7;
   active = &fixture;
   observer_spawns = 0;
-  std::array<void*, 104> table{};
-  table[103] = reinterpret_cast<void*>(+[](void*, int) { ++active->generation; });
+  std::array<void*, 106> table{};
+  table[105] = reinterpret_cast<void*>(+[](void*, int) { ++active->generation; });
   auto* table_ptr = table.data();
   std::memcpy(fixture.controller.data(), &table_ptr, sizeof(table_ptr));
   fixture.image.SetIdentity(1, fixture.controller.data(), 1, 0);
@@ -1375,8 +1378,8 @@ TEST(PawnObserver, SpectatorSelectionNeedsNoHeroAndDoesNotCreateCombatPawn) {
   fixture.occupied = true;
   fixture.generation = 3;
   fixture.controller[kTeamField] = 1;
-  std::array<void*, 104> table{};
-  table[103] =
+  std::array<void*, 106> table{};
+  table[105] =
       reinterpret_cast<void*>(+[](void*, int) { ADD_FAILURE() << "already on spectator team"; });
   auto* table_ptr = table.data();
   std::memcpy(fixture.controller.data(), &table_ptr, sizeof(table_ptr));
@@ -1415,8 +1418,8 @@ TEST(PawnObserver, HeroSelectionDoesNotTreatObserverPawnAsHeroPawn) {
   fixture.occupied = true;
   fixture.generation = 3;
   fixture.controller[kTeamField] = 2;
-  std::array<void*, 104> table{};
-  table[103] = reinterpret_cast<void*>(+[](void*, int) { ADD_FAILURE(); });
+  std::array<void*, 106> table{};
+  table[105] = reinterpret_cast<void*>(+[](void*, int) { ADD_FAILURE(); });
   auto* table_ptr = table.data();
   std::memcpy(fixture.controller.data(), &table_ptr, sizeof(table_ptr));
   fixture.image.SetIdentity(1, fixture.controller.data(), 1, 0);

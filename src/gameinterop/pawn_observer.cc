@@ -553,11 +553,11 @@ std::expected<void, std::string> PawnObserver::SelectPlayer(int32_t slot, uint64
   if (!current) return std::unexpected(current.error());
   auto* table = *static_cast<void***>(current->first);
   // CBasePlayerController::ChangeTeam occupies vtable slot 103.
-  if (!table || !table[103]) return std::unexpected("native team selection unavailable");
+  if (!table || !table[105]) return std::unexpected("native team selection unavailable");
   uint8_t current_team = 0;
   std::memcpy(&current_team, static_cast<const char*>(current->first) + layout_.team, 1);
   if (current_team != team) {
-    reinterpret_cast<void (*)(void*, int)>(table[103])(current->first, team);
+    reinterpret_cast<void (*)(void*, int)>(table[105])(current->first, team);
     current = borrow();
     if (!current) return std::unexpected(current.error());
   }
@@ -1034,7 +1034,7 @@ std::expected<void, std::string> PawnObserver::SetPreparationFrozen(int32_t slot
   if (!damage || damage->offset != 0x2e0 || damage->size < sizeof(uint8_t))
     return std::unexpected("native preparation damage field unavailable");
   auto field = SchemaFieldOf(*schema, "server.dll", "CBaseEntity", "m_fFlags");
-  if (!field || field->offset != 0x380 || field->size < sizeof(uint32_t) || !field->networked)
+  if (!field || field->offset != 0x390 || field->size < sizeof(uint32_t) || !field->networked)
     return std::unexpected("native preparation flags unavailable");
   auto movement = SchemaFieldOf(*schema, "server.dll", "CBaseEntity", "m_MoveType");
   auto collision = SchemaFieldOf(*schema, "server.dll", "CBaseEntity", "m_MoveCollide");
@@ -1302,7 +1302,7 @@ std::expected<void, std::string> PawnObserver::ReconcileAbilities(
     if (definition->disabled || definition->name.starts_with("upgrade_"))
       return std::unexpected("replay ability is not an enabled non-item definition");
     create(static_cast<unsigned char*>(frame_pawn_) + ability_layout_->component,
-           definition->native_definition_pointer, target.slot, 0, -1, 1);
+           definition->native_definition_pointer, target.slot, 0, true, nullptr);
     owned = CurrentAbilitiesForSlot(slot);
     if (!owned) return std::unexpected(owned.error());
     if (std::ranges::count_if(*owned, [&](const Ability& ability) {
@@ -1314,9 +1314,29 @@ std::expected<void, std::string> PawnObserver::ReconcileAbilities(
   return ApplyAbilityUpgrades(slot, targets, set_bits);
 }
 
+namespace {
+// UpgradeLowWordSetter resolves the engine setter for m_nUpgradeInfo's low
+// word once; builds before game build 6711 have none.
+using SetUpgradeLowWord = void (*)(void* ability, uint32_t value);
+SetUpgradeLowWord UpgradeLowWordSetter() {
+#if defined(_WIN32)
+  static const SetUpgradeLowWord setter = []() -> SetUpgradeLowWord {
+    const auto server = MappedModuleImage::ForModule(L"server.dll");
+    if (!server) return nullptr;
+    const auto address = ResolveSignature(*server, "ability.set-upgrade-low-word");
+    return address ? reinterpret_cast<SetUpgradeLowWord>(*address) : nullptr;
+  }();
+  return setter;
+#else
+  return nullptr;
+#endif
+}
+}  // namespace
+
 std::expected<void, std::string> PawnObserver::ApplyAbilityUpgrades(
     int32_t slot, std::span<const AbilityUpgrade> upgrades, SetUpgradeBits set_bits) {
   if (!set_bits) return std::unexpected("engine upgrade setter is unavailable");
+  const auto set_low_word = UpgradeLowWordSetter();
   auto owned = CurrentAbilitiesForSlot(slot);
   if (!owned) return std::unexpected(owned.error());
   std::vector<uint32_t> handles;
@@ -1328,7 +1348,7 @@ std::expected<void, std::string> PawnObserver::ApplyAbilityUpgrades(
       return std::unexpected("upgrade target does not uniquely match an owned ability");
     }
     const auto& ability = *std::find_if(owned->begin(), owned->end(), matches);
-    if ((ability.upgrade_info & 0xffff) != (target.upgrade_info & 0xffff)) {
+    if ((ability.upgrade_info & 0xffff) != (target.upgrade_info & 0xffff) && !set_low_word) {
       return std::unexpected("upgrade packed low word differs; setter cannot restore it");
     }
     if (std::find(handles.begin(), handles.end(), ability.handle) != handles.end()) {
@@ -1346,12 +1366,14 @@ std::expected<void, std::string> PawnObserver::ApplyAbilityUpgrades(
       return ability.handle == handles[i] && ability.subclass_id == target.subclass_id &&
              ability.slot == target.slot;
     });
-    if (found == owned->end() || (found->upgrade_info & 0xffff) != (target.upgrade_info & 0xffff)) {
-      return std::unexpected("upgrade target changed during apply");
-    }
+    if (found == owned->end()) return std::unexpected("upgrade target changed during apply");
     if (found->upgrade_info == target.upgrade_info) continue;
     auto* identity = IdentityOfHandle(EntityListOf(frame_entity_system_), found->handle);
     if (!identity) return std::unexpected("upgrade target expired during apply");
+    if ((found->upgrade_info & 0xffff) != (target.upgrade_info & 0xffff)) {
+      if (!set_low_word) return std::unexpected("upgrade target changed during apply");
+      set_low_word(InstanceOf(identity), target.upgrade_info & 0xffff);
+    }
     set_bits(InstanceOf(identity), target.upgrade_info >> 16);
   }
   // Include the final setter in the ownership check before returning success.
@@ -1535,7 +1557,7 @@ std::expected<PawnObserver::Ability, std::string> PawnObserver::GrantItem(
 
   // The engine owns the returned pointer. Only the subsequent owned-ability
   // observation establishes the grant and its actual inventory slot.
-  functions.add(frame_pawn_, definition->name.c_str(), 0, -1);
+  functions.add(frame_pawn_, definition->name.c_str(), 0, nullptr);
   const auto after = CurrentAbilitiesForSlot(slot);
   if (!after) return std::unexpected(after.error());
   for (const auto& previous : *before) {
@@ -1569,9 +1591,6 @@ std::expected<void, std::string> PawnObserver::ReconcileItems(int32_t slot,
     if (std::find(names.begin(), names.end(), definition->name) != names.end()) {
       return std::unexpected("duplicate replay item definition");
     }
-    if ((target.upgrade_info & 0xffff) != 1) {
-      return std::unexpected("item packed low word cannot be restored by engine upgrade setter");
-    }
     if (target.slot && *target.slot != 23) {
       if (*target.slot < 4 || *target.slot > 7) return std::unexpected("invalid replay item slot");
       if (!functions.swap_slots) return std::unexpected("engine item slot swap is unavailable");
@@ -1604,10 +1623,10 @@ std::expected<void, std::string> PawnObserver::ReconcileItems(int32_t slot,
     if (target == targets.end() ||
         std::find(kept.begin(), kept.end(), item.subclass_id) != kept.end()) {
       removals.push_back(item);
+    } else if ((item.upgrade_info & 0xffff) != (target->upgrade_info & 0xffff)) {
+      // Only a fresh grant sets the packed low word; replace the item.
+      removals.push_back(item);
     } else {
-      if ((item.upgrade_info & 0xffff) != (target->upgrade_info & 0xffff)) {
-        return std::unexpected("owned item packed low word differs");
-      }
       kept.push_back(item.subclass_id);
     }
   }
@@ -1638,8 +1657,11 @@ std::expected<void, std::string> PawnObserver::ReconcileItems(int32_t slot,
     if (std::none_of(items->begin(), items->end(), matches)) {
       // The returned pointer is borrowed engine storage. Ownership readback,
       // rather than that pointer, determines whether the grant took effect.
-      functions.add(frame_pawn_, names[i].c_str(),
-                    static_cast<int32_t>(targets[i].upgrade_info >> 16), -1);
+      // The upgrade value's low word holds the initial upgrade bits and its
+      // high dword the packed low word of m_nUpgradeInfo.
+      const uint64_t upgrade = (uint64_t{targets[i].upgrade_info & 0xffffu} << 32) |
+                               (targets[i].upgrade_info >> 16);
+      functions.add(frame_pawn_, names[i].c_str(), upgrade, nullptr);
       items = read_items();
       if (!items) return std::unexpected(items.error());
     }

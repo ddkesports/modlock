@@ -181,8 +181,8 @@ std::expected<KothRules, std::string> KothRules::Resolve(const ModuleImage& serv
   reader.current_ = *current;
   reader.module_begin_ = server.base();
   reader.module_size_ = server.image_bytes().size();
-  // Native force-spawn callback RVA 966121 sets next location and calls the
-  // ordinary warning/spawn routine at +b0 (E8, sole RCX argument is rules).
+  // The native force-spawn callback sets the next location and calls the
+  // ordinary warning/spawn routine at +cb (E8, sole RCX argument is rules).
   auto start = ResolveSignature(server, "game-rules.start-koth");
   if (!start) return std::unexpected(start.error());
   const auto start_address = reinterpret_cast<uintptr_t>(*start);

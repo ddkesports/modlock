@@ -25,15 +25,17 @@ struct alignas(16) GameTrace {
   float offset = 0;
   float fraction = 1;
   std::int32_t triangle = -1;
+  // Copied with the triangle from the hit since game build 6711; -1 when unset.
+  std::int32_t triangle_detail = -1;
   std::int16_t bone = -1;
   std::uint8_t ray_type = 0;
   bool start_solid = false;
   bool exact = false;
-  std::byte padding[7]{};
+  std::byte padding[3]{};
 };
 static_assert(sizeof(GameTrace) == 192);
 static_assert(offsetof(GameTrace, fraction) == 0xac);
-static_assert(offsetof(GameTrace, start_solid) == 0xb7);
+static_assert(offsetof(GameTrace, start_solid) == 0xbb);
 
 inline TraceResult ReadGameTrace(const GameTrace& native) {
   TraceResult result;

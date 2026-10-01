@@ -8,6 +8,7 @@
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "modlock/gameinterop/mapped_module_image.h"
+#include "native_network_messages.h"
 #include "proto/modlock/chat.pb.h"
 #include "proto/modlock/hud.pb.h"
 
@@ -18,7 +19,8 @@ namespace {
 
 // BitReader matches the installed networksystem's bf_read. Unserialize checks
 // data bits at +12 and cursor at +16 before reading the length-prefixed proto.
-// The native serializer owns protobuf allocation, parsing, and deallocation.
+// The native serializer and message own protobuf allocation, parsing, and
+// deallocation.
 struct BitReader {
   const uint8_t* data;
   int32_t bytes;
@@ -75,19 +77,23 @@ std::expected<void, std::string> NativeUserMessages::Send(
   const auto size = message.ByteSizeLong();
   if (size == 0 || size > 4096) return std::unexpected("native user message size is invalid");
 #if defined(_WIN32)
-  const auto table = *static_cast<void***>(messages_);
   // The installed engine compares all 32 bits of the message ID. A 16-bit
   // declaration leaves the upper argument bits unspecified on Windows x64.
   using Find = void* (*)(void*, int32_t);
-  auto* serializer = reinterpret_cast<Find>(table[31])(messages_, id);
+  auto* serializer =
+      NetworkMessagesMethod<Find>(messages_, kNetworkMessagesFindByIdSlot)(messages_, id);
   if (!serializer) return std::unexpected("native user message serializer unavailable");
-  const auto methods = *static_cast<void***>(serializer);
-  using Allocate = void* (*)(void*);
-  auto* native_message = reinterpret_cast<Allocate>(methods[6])(serializer);
+  using Allocate = void* (*)();
+  Allocate allocate = nullptr;
+  std::memcpy(&allocate, static_cast<std::byte*>(serializer) + kSerializerAllocateOffset,
+              sizeof(allocate));
+  if (!allocate) return std::unexpected("native user message allocator unavailable");
+  auto* native_message = allocate();
   if (!native_message) return std::unexpected("native user message allocation failed");
-  const auto release = [&](void* value) {
-    using Deallocate = void (*)(void*, void*, void*);
-    reinterpret_cast<Deallocate>(table[9])(messages_, serializer, value);
+  // The message's scalar deleting destructor frees it with the game's allocator.
+  const auto release = [](void* value) {
+    using Destroy = void* (*)(void*, uint32_t);
+    reinterpret_cast<Destroy>((*static_cast<void***>(value))[0])(value, 1);
   };
   const std::unique_ptr<void, decltype(release)> owned_message(native_message, release);
 
@@ -105,8 +111,9 @@ std::expected<void, std::string> NativeUserMessages::Send(
   std::memcpy(bytes.data(), encoded.data(), encoded.size());
   BitReader reader{bytes.data(), static_cast<int32_t>(encoded.size()),
                    static_cast<int32_t>(encoded.size() * 8)};
-  using Unserialize = bool (*)(void*, BitReader&, void*);
-  if (!reinterpret_cast<Unserialize>(methods[8])(serializer, reader, native_message) ||
+  using Unserialize = bool (*)(void*, BitReader&, void*, void*);
+  if (!NetworkMessagesMethod<Unserialize>(messages_, kNetworkMessagesUnserializeSlot)(
+          messages_, reader, native_message, nullptr) ||
       reader.overflow || reader.cursor != reader.bits)
     return std::unexpected("native user message decoding failed");
 

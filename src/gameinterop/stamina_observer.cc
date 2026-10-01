@@ -14,6 +14,7 @@
 #include "modlock/gameinterop/entity_abi.h"
 #include "modlock/gameinterop/mapped_module_image.h"
 #include "modlock/gameinterop/thunk_owner.h"
+#include "native_network_messages.h"
 #include "proto/modlock/stamina_consumed.pb.h"
 
 #if defined(_WIN32)
@@ -172,6 +173,7 @@ struct StaminaObserver::Impl {
   // still forward. The game module outlives this observer.
   static inline PostEvent original = nullptr;
   void* events = nullptr;
+  void* messages = nullptr;
   DWORD frame_thread = 0;
   StaminaEvidenceTracker tracker;
   std::optional<ThunkOwner> owner;
@@ -205,23 +207,9 @@ struct StaminaObserver::Impl {
 
   void ReadEvent(void* serializer, const void* message) {
     if (frame_thread == 0 || !serializer || !message) return;
-    const auto table = *static_cast<void***>(serializer);
-    if (!table || !table[2]) {
-      Trace("missing event metadata table");
-      tracker.Invalidate();
-      return;
-    }
-    using GetInfo = const uint8_t* (*)(void*);
-    const auto* info = reinterpret_cast<GetInfo>(table[2])(serializer);
-    if (!info) {
-      Trace("missing event metadata");
-      tracker.Invalidate();
-      return;
-    }
-    int16_t id = 0;
-    std::memcpy(&id, info + 24, sizeof(id));
+    const auto id = NetworkMessageIdOf(serializer);
     if (id != kStaminaConsumedMessageId && id != kDamageMessageId) return;
-    if (GetCurrentThreadId() != frame_thread || !table[7]) {
+    if (GetCurrentThreadId() != frame_thread || !messages) {
       Trace("native event thread or serializer unavailable");
       if (id == kStaminaConsumedMessageId) tracker.Invalidate();
       return;
@@ -230,7 +218,9 @@ struct StaminaObserver::Impl {
     BitWriter writer{bytes.data(), static_cast<int32_t>(bytes.size()),
                      static_cast<int32_t>(bytes.size() * 8)};
     using Serialize = bool (*)(void*, BitWriter&, const void*);
-    if (!reinterpret_cast<Serialize>(table[7])(serializer, writer, message) || writer.overflow ||
+    if (!NetworkMessagesMethod<Serialize>(messages, kNetworkMessagesSerializeSlot)(
+            messages, writer, message) ||
+        writer.overflow ||
         writer.cursor <= 0 || writer.cursor > static_cast<int32_t>(bytes.size() * 8) ||
         writer.cursor % 8 != 0) {
       Trace("native event serialization failed");
@@ -259,8 +249,11 @@ std::expected<StaminaObserver, std::string> StaminaObserver::Install() {
   const auto resolved = ResolveEngineInterface(L"engine2.dll", "GameEventSystemServerV001");
   if (!resolved) return std::unexpected(resolved.error());
   void* events = *resolved;
+  const auto messages = ResolveEngineInterface(L"networksystem.dll", "NetworkMessagesVersion001");
+  if (!messages) return std::unexpected(messages.error());
   auto impl = std::make_unique<Impl>();
   impl->events = events;
+  impl->messages = *messages;
   auto hook = VtableSlotHook::Install(events, 16, reinterpret_cast<void*>(&Impl::OnEvent));
   if (!hook) return std::unexpected(hook.error());
   Impl::original = reinterpret_cast<Impl::PostEvent>(hook->Original());

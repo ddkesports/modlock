@@ -15,7 +15,7 @@ struct Fixture {
   bool available = true;
   Fixture() {
     table = functions.data();
-    functions[44] = reinterpret_cast<void*>(+[](void*, const char*) {});
+    functions[45] = reinterpret_cast<void*>(+[](void*, const char*) {});
     functions[75] = reinterpret_cast<void*>(+[](void* self) -> const void* {
       auto* fixture = static_cast<Fixture*>(self);
       return fixture->available ? fixture->globals.data() : nullptr;
@@ -52,7 +52,7 @@ TEST(EngineServer, ReadsCopiedSimulationClockAndTracksPauseAndAdvance) {
   fixture.functions[75] = nullptr;
   EXPECT_FALSE(engine->ReadClock());
   EXPECT_FALSE(EngineServer::Bind(nullptr));
-  fixture.functions[44] = nullptr;
+  fixture.functions[45] = nullptr;
   EXPECT_FALSE(EngineServer::Bind(&fixture));
 }
 

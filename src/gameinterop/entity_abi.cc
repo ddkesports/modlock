@@ -11,11 +11,12 @@ namespace {
 
 // Class-info field offsets follow sourcesdk public/schemasystem/schematypes.h
 // (SchemaClassInfoData_t, SchemaClassFieldData_t, SchemaMetadataEntryData_t).
-constexpr size_t kClassInfoSize = 0x18;
-constexpr size_t kClassInfoFieldCount = 0x1C;
-constexpr size_t kClassInfoBaseClassCount = 0x21;
-constexpr size_t kClassInfoFields = 0x28;
-constexpr size_t kClassInfoBaseClasses = 0x30;
+// Game build 6711 added m_pszCPPName after m_pszProjectName.
+constexpr size_t kClassInfoSize = 0x20;
+constexpr size_t kClassInfoFieldCount = 0x24;
+constexpr size_t kClassInfoBaseClassCount = 0x29;
+constexpr size_t kClassInfoFields = 0x30;
+constexpr size_t kClassInfoBaseClasses = 0x38;
 constexpr size_t kFieldName = 0x0;
 constexpr size_t kFieldOffset = 0x10;
 constexpr size_t kFieldMetadataCount = 0x14;
@@ -73,18 +74,21 @@ std::expected<void*, std::string> SchemaClassInfoOf(void* schema_system, const c
   return FindDeclaredClassOf(scope, class_name);
 }
 
-// IsFieldNetworked reports whether the field carries MNetworkEnable metadata.
+// IsFieldNetworked reports whether the field may be networked. Game build
+// 6711 no longer ships MNetworkEnable metadata in the server schema, so a
+// field counts as networked unless it carries MNetworkDisable; notifying an
+// unnetworked field is harmless.
 bool IsFieldNetworked(const uint8_t* field) {
   int count = 0;
   std::memcpy(&count, field + kFieldMetadataCount, sizeof(count));
   auto* metadata = static_cast<const uint8_t*>(ReadPointer(field, kFieldMetadata));
   for (int i = 0; i < count; ++i) {
     const char* name = static_cast<const char*>(ReadPointer(metadata + i * kMetadataStride, 0));
-    if (name != nullptr && std::strcmp(name, "MNetworkEnable") == 0) {
-      return true;
+    if (name != nullptr && std::strcmp(name, "MNetworkDisable") == 0) {
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 // FieldInClassInfo searches one class info's own fields, then its first base

@@ -16,10 +16,11 @@ inline constexpr char kEngineToServerVersion[] = "Source2EngineToServer001";
 
 // Vtable slot of IVEngineServer2::ServerCommand. Counted from the exact
 // sourcesdk declaration order: IAppSystem's eleven slots, ISource2Engine's
-// seven (IsPaused through UnknownFunc2), then the twenty-six IVEngineServer2
+// seven (IsPaused through UnknownFunc2), then the twenty-seven IVEngineServer2
 // virtuals before ServerCommand (GetSteamUniverse through
-// Message_DetermineMulticastRecipients).
-inline constexpr size_t kServerCommandSlot = 44;
+// Message_DetermineMulticastRecipients, including GetLongFrameCount since
+// game build 6711).
+inline constexpr size_t kServerCommandSlot = 45;
 // Same SDK declaration: GetServerGlobals follows IsClientFullyAuthenticated.
 inline constexpr size_t kServerGlobalsSlot = 75;
 
