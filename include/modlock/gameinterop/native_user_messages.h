@@ -11,6 +11,10 @@ namespace google::protobuf {
 class MessageLite;
 }
 
+namespace modlock::engine {
+enum ScreenEffectState : int;
+}
+
 namespace modlock::gameinterop {
 
 // NativeUserMessages sends generated messages through engine-owned serializers.
@@ -30,6 +34,26 @@ class MODLOCK_API NativeUserMessages {
   // Announce sends a stock game announcement to the addressed player slot.
   std::expected<void, std::string> Announce(int32_t slot, std::string_view title,
                                             std::string_view description) const;
+
+  // ScreenEffectTiming is in seconds; Scale weights the effect.
+  struct ScreenEffectTiming {
+    float delay = 0;
+    float fade_in = 0;
+    float hold = 0;
+    float fade_out = 0;
+    float scale = 1;
+  };
+
+  // ScreenEffect plays a stock full-screen post-processing state on the
+  // addressed player's view. Owner must be a live entity index, normally the
+  // player's pawn; the client drops the effect otherwise.
+  std::expected<void, std::string> ScreenEffect(int32_t slot, int32_t owner,
+                                                engine::ScreenEffectState state,
+                                                const ScreenEffectTiming& timing) const;
+
+  // ClearScreenEffect ends every running instance of state on the player's view.
+  std::expected<void, std::string> ClearScreenEffect(int32_t slot, int32_t owner,
+                                                     engine::ScreenEffectState state) const;
 
  private:
   NativeUserMessages(void* messages, void* events) : messages_(messages), events_(events) {}

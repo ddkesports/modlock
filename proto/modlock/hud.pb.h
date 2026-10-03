@@ -30,6 +30,7 @@
 #include "google/protobuf/message_lite.h"
 #include "google/protobuf/repeated_field.h"  // IWYU pragma: export
 #include "google/protobuf/extension_set.h"  // IWYU pragma: export
+#include "google/protobuf/generated_enum_reflection.h"
 #include "google/protobuf/unknown_field_set.h"
 // @@protoc_insertion_point(includes)
 
@@ -56,6 +57,8 @@ MODLOCK_API extern const ::google::protobuf::internal::DescriptorTable descripto
 }  // extern "C"
 namespace modlock {
 namespace engine {
+enum ScreenEffectState : int;
+extern const uint32_t ScreenEffectState_internal_data_[];
 class HudAnnouncement;
 struct HudAnnouncementDefaultTypeInternal;
 MODLOCK_API extern HudAnnouncementDefaultTypeInternal _HudAnnouncement_default_instance_;
@@ -64,19 +67,344 @@ class HudTextMessage;
 struct HudTextMessageDefaultTypeInternal;
 MODLOCK_API extern HudTextMessageDefaultTypeInternal _HudTextMessage_default_instance_;
 MODLOCK_API extern const ::google::protobuf::internal::ClassDataFull HudTextMessage_class_data_;
+class ScreenEffect;
+struct ScreenEffectDefaultTypeInternal;
+MODLOCK_API extern ScreenEffectDefaultTypeInternal _ScreenEffect_default_instance_;
+MODLOCK_API extern const ::google::protobuf::internal::ClassDataFull ScreenEffect_class_data_;
 }  // namespace engine
 }  // namespace modlock
 namespace google {
 namespace protobuf {
+template <>
+internal::EnumTraitsT<::modlock::engine::ScreenEffectState_internal_data_>
+    internal::EnumTraitsImpl::value<::modlock::engine::ScreenEffectState>;
 }  // namespace protobuf
 }  // namespace google
 
 namespace modlock {
 namespace engine {
+enum ScreenEffectState : int {
+  SCREEN_EFFECT_STATE_KILLED = 0,
+  SCREEN_EFFECT_STATE_BLACK = 1,
+  SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM = 2,
+  SCREEN_EFFECT_STATE_BLINDED = 3,
+  SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER = 4,
+  SCREEN_EFFECT_STATE_MATCH_INTRO = 5,
+};
+
+extern const uint32_t ScreenEffectState_internal_data_[];
+inline constexpr ScreenEffectState ScreenEffectState_MIN =
+    static_cast<ScreenEffectState>(0);
+inline constexpr ScreenEffectState ScreenEffectState_MAX =
+    static_cast<ScreenEffectState>(5);
+inline bool ScreenEffectState_IsValid(int value) {
+  return 0 <= value && value <= 5;
+}
+inline constexpr int ScreenEffectState_ARRAYSIZE = 5 + 1;
+const ::google::protobuf::EnumDescriptor* PROTOBUF_NONNULL ScreenEffectState_descriptor();
+template <typename T>
+const ::std::string& ScreenEffectState_Name(T value) {
+  static_assert(::std::is_same<T, ScreenEffectState>::value ||
+                    ::std::is_integral<T>::value,
+                "Incorrect type passed to ScreenEffectState_Name().");
+  return ScreenEffectState_Name(static_cast<ScreenEffectState>(value));
+}
+template <>
+inline const ::std::string& ScreenEffectState_Name(ScreenEffectState value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<ScreenEffectState_descriptor, 0, 5>(
+      static_cast<int>(value));
+}
+inline bool ScreenEffectState_Parse(
+    ::absl::string_view name, ScreenEffectState* PROTOBUF_NONNULL value) {
+  return ::google::protobuf::internal::ParseNamedEnum<ScreenEffectState>(ScreenEffectState_descriptor(), name,
+                                           value);
+}
 
 // ===================================================================
 
 
+// -------------------------------------------------------------------
+
+class MODLOCK_API ScreenEffect final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:modlock.engine.ScreenEffect) */ {
+ public:
+  inline ScreenEffect() : ScreenEffect(nullptr) {}
+  ~ScreenEffect() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ScreenEffect* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ScreenEffect));
+  }
+#endif
+
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ScreenEffect(::google::protobuf::internal::ConstantInitialized);
+
+  inline ScreenEffect(const ScreenEffect& from) : ScreenEffect(nullptr, from) {}
+  inline ScreenEffect(ScreenEffect&& from) noexcept
+      : ScreenEffect(nullptr, ::std::move(from)) {}
+  inline ScreenEffect& operator=(const ScreenEffect& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ScreenEffect& operator=(ScreenEffect&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ScreenEffect& default_instance() {
+    return *reinterpret_cast<const ScreenEffect*>(
+        &_ScreenEffect_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 2;
+  friend void swap(ScreenEffect& a, ScreenEffect& b) { a.Swap(&b); }
+  inline void Swap(ScreenEffect* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ScreenEffect* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ScreenEffect* PROTOBUF_NONNULL New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ScreenEffect>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ScreenEffect& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ScreenEffect& from) { ScreenEffect::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  ::size_t ByteSizeLong() const final;
+  ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ScreenEffect* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "modlock.engine.ScreenEffect"; }
+
+  explicit ScreenEffect(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ScreenEffect(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ScreenEffect& from);
+  ScreenEffect(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ScreenEffect&& from) noexcept
+      : ScreenEffect(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kClearAllStatesFieldNumber = 2,
+    kStateFieldNumber = 3,
+    kDelayFieldNumber = 4,
+    kFadeInTimeFieldNumber = 5,
+    kHoldTimeFieldNumber = 6,
+    kFadeOutTimeFieldNumber = 7,
+    kScaleFieldNumber = 8,
+    kEntindexOwnerFieldNumber = 1,
+  };
+  // optional bool clear_all_states = 2;
+  bool has_clear_all_states() const;
+  void clear_clear_all_states() ;
+  bool clear_all_states() const;
+  void set_clear_all_states(bool value);
+
+  private:
+  bool _internal_clear_all_states() const;
+  void _internal_set_clear_all_states(bool value);
+
+  public:
+  // optional .modlock.engine.ScreenEffectState state = 3;
+  bool has_state() const;
+  void clear_state() ;
+  ::modlock::engine::ScreenEffectState state() const;
+  void set_state(::modlock::engine::ScreenEffectState value);
+
+  private:
+  ::modlock::engine::ScreenEffectState _internal_state() const;
+  void _internal_set_state(::modlock::engine::ScreenEffectState value);
+
+  public:
+  // optional float delay = 4;
+  bool has_delay() const;
+  void clear_delay() ;
+  float delay() const;
+  void set_delay(float value);
+
+  private:
+  float _internal_delay() const;
+  void _internal_set_delay(float value);
+
+  public:
+  // optional float fade_in_time = 5;
+  bool has_fade_in_time() const;
+  void clear_fade_in_time() ;
+  float fade_in_time() const;
+  void set_fade_in_time(float value);
+
+  private:
+  float _internal_fade_in_time() const;
+  void _internal_set_fade_in_time(float value);
+
+  public:
+  // optional float hold_time = 6;
+  bool has_hold_time() const;
+  void clear_hold_time() ;
+  float hold_time() const;
+  void set_hold_time(float value);
+
+  private:
+  float _internal_hold_time() const;
+  void _internal_set_hold_time(float value);
+
+  public:
+  // optional float fade_out_time = 7;
+  bool has_fade_out_time() const;
+  void clear_fade_out_time() ;
+  float fade_out_time() const;
+  void set_fade_out_time(float value);
+
+  private:
+  float _internal_fade_out_time() const;
+  void _internal_set_fade_out_time(float value);
+
+  public:
+  // optional float scale = 8;
+  bool has_scale() const;
+  void clear_scale() ;
+  float scale() const;
+  void set_scale(float value);
+
+  private:
+  float _internal_scale() const;
+  void _internal_set_scale(float value);
+
+  public:
+  // optional int32 entindex_owner = 1 [default = -1];
+  bool has_entindex_owner() const;
+  void clear_entindex_owner() ;
+  ::int32_t entindex_owner() const;
+  void set_entindex_owner(::int32_t value);
+
+  private:
+  ::int32_t _internal_entindex_owner() const;
+  void _internal_set_entindex_owner(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:modlock.engine.ScreenEffect)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 8,
+                                   1, 0,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ScreenEffect& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    bool clear_all_states_;
+    int state_;
+    float delay_;
+    float fade_in_time_;
+    float hold_time_;
+    float fade_out_time_;
+    float scale_;
+    ::int32_t entindex_owner_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_github_2ecom_2fparalin_2fmodlock_2fproto_2fmodlock_2fhud_2eproto;
+};
+
+MODLOCK_API extern const ::google::protobuf::internal::ClassDataFull ScreenEffect_class_data_;
 // -------------------------------------------------------------------
 
 class MODLOCK_API HudTextMessage final : public ::google::protobuf::Message
@@ -1054,6 +1382,245 @@ HudAnnouncement::_internal_mutable_dialog_variable_locstring() {
   return &_impl_.dialog_variable_locstring_;
 }
 
+// -------------------------------------------------------------------
+
+// ScreenEffect
+
+// optional int32 entindex_owner = 1 [default = -1];
+inline bool ScreenEffect::has_entindex_owner() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
+  return value;
+}
+inline void ScreenEffect::clear_entindex_owner() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.entindex_owner_ = -1;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline ::int32_t ScreenEffect::entindex_owner() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.entindex_owner)
+  return _internal_entindex_owner();
+}
+inline void ScreenEffect::set_entindex_owner(::int32_t value) {
+  _internal_set_entindex_owner(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.entindex_owner)
+}
+inline ::int32_t ScreenEffect::_internal_entindex_owner() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.entindex_owner_;
+}
+inline void ScreenEffect::_internal_set_entindex_owner(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.entindex_owner_ = value;
+}
+
+// optional bool clear_all_states = 2;
+inline bool ScreenEffect::has_clear_all_states() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000001U);
+  return value;
+}
+inline void ScreenEffect::clear_clear_all_states() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.clear_all_states_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline bool ScreenEffect::clear_all_states() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.clear_all_states)
+  return _internal_clear_all_states();
+}
+inline void ScreenEffect::set_clear_all_states(bool value) {
+  _internal_set_clear_all_states(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.clear_all_states)
+}
+inline bool ScreenEffect::_internal_clear_all_states() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.clear_all_states_;
+}
+inline void ScreenEffect::_internal_set_clear_all_states(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.clear_all_states_ = value;
+}
+
+// optional .modlock.engine.ScreenEffectState state = 3;
+inline bool ScreenEffect::has_state() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000002U);
+  return value;
+}
+inline void ScreenEffect::clear_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.state_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline ::modlock::engine::ScreenEffectState ScreenEffect::state() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.state)
+  return _internal_state();
+}
+inline void ScreenEffect::set_state(::modlock::engine::ScreenEffectState value) {
+  _internal_set_state(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.state)
+}
+inline ::modlock::engine::ScreenEffectState ScreenEffect::_internal_state() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return static_cast<::modlock::engine::ScreenEffectState>(_impl_.state_);
+}
+inline void ScreenEffect::_internal_set_state(::modlock::engine::ScreenEffectState value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+                                          assert(::google::protobuf::internal::ValidateEnum(
+                                              value, ::modlock::engine::ScreenEffectState_internal_data_));
+                                          _impl_.state_ = value;
+}
+
+// optional float delay = 4;
+inline bool ScreenEffect::has_delay() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000004U);
+  return value;
+}
+inline void ScreenEffect::clear_delay() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.delay_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline float ScreenEffect::delay() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.delay)
+  return _internal_delay();
+}
+inline void ScreenEffect::set_delay(float value) {
+  _internal_set_delay(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.delay)
+}
+inline float ScreenEffect::_internal_delay() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.delay_;
+}
+inline void ScreenEffect::_internal_set_delay(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.delay_ = value;
+}
+
+// optional float fade_in_time = 5;
+inline bool ScreenEffect::has_fade_in_time() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000008U);
+  return value;
+}
+inline void ScreenEffect::clear_fade_in_time() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fade_in_time_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline float ScreenEffect::fade_in_time() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.fade_in_time)
+  return _internal_fade_in_time();
+}
+inline void ScreenEffect::set_fade_in_time(float value) {
+  _internal_set_fade_in_time(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.fade_in_time)
+}
+inline float ScreenEffect::_internal_fade_in_time() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.fade_in_time_;
+}
+inline void ScreenEffect::_internal_set_fade_in_time(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fade_in_time_ = value;
+}
+
+// optional float hold_time = 6;
+inline bool ScreenEffect::has_hold_time() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000010U);
+  return value;
+}
+inline void ScreenEffect::clear_hold_time() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.hold_time_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline float ScreenEffect::hold_time() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.hold_time)
+  return _internal_hold_time();
+}
+inline void ScreenEffect::set_hold_time(float value) {
+  _internal_set_hold_time(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.hold_time)
+}
+inline float ScreenEffect::_internal_hold_time() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.hold_time_;
+}
+inline void ScreenEffect::_internal_set_hold_time(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.hold_time_ = value;
+}
+
+// optional float fade_out_time = 7;
+inline bool ScreenEffect::has_fade_out_time() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000020U);
+  return value;
+}
+inline void ScreenEffect::clear_fade_out_time() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fade_out_time_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline float ScreenEffect::fade_out_time() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.fade_out_time)
+  return _internal_fade_out_time();
+}
+inline void ScreenEffect::set_fade_out_time(float value) {
+  _internal_set_fade_out_time(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.fade_out_time)
+}
+inline float ScreenEffect::_internal_fade_out_time() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.fade_out_time_;
+}
+inline void ScreenEffect::_internal_set_fade_out_time(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.fade_out_time_ = value;
+}
+
+// optional float scale = 8;
+inline bool ScreenEffect::has_scale() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000040U);
+  return value;
+}
+inline void ScreenEffect::clear_scale() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.scale_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline float ScreenEffect::scale() const {
+  // @@protoc_insertion_point(field_get:modlock.engine.ScreenEffect.scale)
+  return _internal_scale();
+}
+inline void ScreenEffect::set_scale(float value) {
+  _internal_set_scale(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:modlock.engine.ScreenEffect.scale)
+}
+inline float ScreenEffect::_internal_scale() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.scale_;
+}
+inline void ScreenEffect::_internal_set_scale(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.scale_ = value;
+}
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif  // __GNUC__
@@ -1062,6 +1629,19 @@ HudAnnouncement::_internal_mutable_dialog_variable_locstring() {
 }  // namespace engine
 }  // namespace modlock
 
+
+namespace google {
+namespace protobuf {
+
+template <>
+struct is_proto_enum<::modlock::engine::ScreenEffectState> : std::true_type {};
+template <>
+inline const EnumDescriptor* PROTOBUF_NONNULL GetEnumDescriptor<::modlock::engine::ScreenEffectState>() {
+  return ::modlock::engine::ScreenEffectState_descriptor();
+}
+
+}  // namespace protobuf
+}  // namespace google
 
 // @@protoc_insertion_point(global_scope)
 

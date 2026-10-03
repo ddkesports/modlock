@@ -2,12 +2,71 @@
 // @generated from file github.com/paralin/modlock/proto/modlock/hud.proto (package modlock.engine, syntax proto2)
 /* eslint-disable */
 
+import { createEnumType } from "@aptre/protobuf-es-lite/enum";
 import type { MessageType } from "@aptre/protobuf-es-lite/message";
 import { createMessageType } from "@aptre/protobuf-es-lite/message";
 import { ScalarType } from "@aptre/protobuf-es-lite/scalar";
 import type { PartialFieldInfo } from "@aptre/protobuf-es-lite/field";
 
 export const protobufPackage = "modlock.engine";
+
+/**
+ * ScreenEffectState matches Deadlock PostProcessingGameStates.
+ *
+ * @generated from enum modlock.engine.ScreenEffectState
+ */
+export enum ScreenEffectState {
+  /**
+   * SCREEN_EFFECT_STATE_KILLED is the stock death treatment.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_KILLED = 0;
+   */
+  KILLED = 0,
+
+  /**
+   * SCREEN_EFFECT_STATE_BLACK fades the view to black.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_BLACK = 1;
+   */
+  BLACK = 1,
+
+  /**
+   * SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM is the Doorman hotel treatment.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM = 2;
+   */
+  DOORMAN_HOTEL_VICTIM = 2,
+
+  /**
+   * SCREEN_EFFECT_STATE_BLINDED is the stock blind treatment.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_BLINDED = 3;
+   */
+  BLINDED = 3,
+
+  /**
+   * SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER is Drifter's darkness view.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER = 4;
+   */
+  DRIFTER_DARKNESS_CASTER = 4,
+
+  /**
+   * SCREEN_EFFECT_STATE_MATCH_INTRO is the match start treatment.
+   *
+   * @generated from enum value: SCREEN_EFFECT_STATE_MATCH_INTRO = 5;
+   */
+  MATCH_INTRO = 5,
+}
+
+export const ScreenEffectState_Enum = /* @__PURE__ */ createEnumType("modlock.engine.ScreenEffectState", [
+  [0, "SCREEN_EFFECT_STATE_KILLED"],
+  [1, "SCREEN_EFFECT_STATE_BLACK"],
+  [2, "SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM"],
+  [3, "SCREEN_EFFECT_STATE_BLINDED"],
+  [4, "SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER"],
+  [5, "SCREEN_EFFECT_STATE_MATCH_INTRO"],
+]);
 
 /**
  * HudTextMessage matches native CUserMessageTextMsg, message 124.
@@ -86,6 +145,75 @@ export const HudAnnouncement: MessageType<HudAnnouncement> = /* @__PURE__ */ cre
         { no: 3, name: "classname", kind: "scalar", T: ScalarType.STRING, repeated: true },
         { no: 4, name: "dialog_variable_name", kind: "scalar", T: ScalarType.STRING, repeated: true },
         { no: 5, name: "dialog_variable_locstring", kind: "scalar", T: ScalarType.STRING, repeated: true },
+    ] satisfies readonly PartialFieldInfo[],
+    packedByDefault: false,
+});
+
+/**
+ * ScreenEffect matches Deadlock CCitadelUserMsg_PostProcessingAnim, message 332.
+ * The client ignores the message unless entindex_owner names a live entity.
+ * Each state keeps a list of running instances, so effects of one state stack.
+ *
+ * @generated from message modlock.engine.ScreenEffect
+ */
+export interface ScreenEffect {
+  /**
+   * EntindexOwner is the entity the effect belongs to, normally the
+   * recipient's pawn.
+   *
+   * @generated from field: optional int32 entindex_owner = 1 [default = -1];
+   */
+  entindexOwner?: number;
+  /**
+   * ClearAllStates ends every running instance of state instead of starting one.
+   *
+   * @generated from field: optional bool clear_all_states = 2;
+   */
+  clearAllStates?: boolean;
+  /**
+   * State selects the stock post-processing resource.
+   *
+   * @generated from field: optional modlock.engine.ScreenEffectState state = 3;
+   */
+  state?: ScreenEffectState;
+  /**
+   * Delay, FadeInTime, HoldTime and FadeOutTime are seconds, applied in order.
+   *
+   * @generated from field: optional float delay = 4;
+   */
+  delay?: number;
+  /**
+   * @generated from field: optional float fade_in_time = 5;
+   */
+  fadeInTime?: number;
+  /**
+   * @generated from field: optional float hold_time = 6;
+   */
+  holdTime?: number;
+  /**
+   * @generated from field: optional float fade_out_time = 7;
+   */
+  fadeOutTime?: number;
+  /**
+   * Scale weights the effect; the client stores it with each instance.
+   *
+   * @generated from field: optional float scale = 8;
+   */
+  scale?: number;
+
+};
+
+export const ScreenEffect: MessageType<ScreenEffect> = /* @__PURE__ */ createMessageType({
+    typeName: "modlock.engine.ScreenEffect",
+    fields: [
+        { no: 1, name: "entindex_owner", kind: "scalar", T: ScalarType.INT32, opt: true, default: -1 },
+        { no: 2, name: "clear_all_states", kind: "scalar", T: ScalarType.BOOL, opt: true },
+        { no: 3, name: "state", kind: "enum", T: ScreenEffectState_Enum, opt: true },
+        { no: 4, name: "delay", kind: "scalar", T: ScalarType.FLOAT, opt: true },
+        { no: 5, name: "fade_in_time", kind: "scalar", T: ScalarType.FLOAT, opt: true },
+        { no: 6, name: "hold_time", kind: "scalar", T: ScalarType.FLOAT, opt: true },
+        { no: 7, name: "fade_out_time", kind: "scalar", T: ScalarType.FLOAT, opt: true },
+        { no: 8, name: "scale", kind: "scalar", T: ScalarType.FLOAT, opt: true },
     ] satisfies readonly PartialFieldInfo[],
     packedByDefault: false,
 });

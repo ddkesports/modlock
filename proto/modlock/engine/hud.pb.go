@@ -8,8 +8,62 @@ import (
 	fmt "fmt"
 	protobuf_go_lite "github.com/aperturerobotics/protobuf-go-lite"
 	io "io"
+	math "math"
 	slices "slices"
+	strconv "strconv"
 )
+
+// ScreenEffectState matches Deadlock PostProcessingGameStates.
+type ScreenEffectState int32
+
+const (
+	// SCREEN_EFFECT_STATE_KILLED is the stock death treatment.
+	ScreenEffectState_SCREEN_EFFECT_STATE_KILLED ScreenEffectState = 0
+	// SCREEN_EFFECT_STATE_BLACK fades the view to black.
+	ScreenEffectState_SCREEN_EFFECT_STATE_BLACK ScreenEffectState = 1
+	// SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM is the Doorman hotel treatment.
+	ScreenEffectState_SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM ScreenEffectState = 2
+	// SCREEN_EFFECT_STATE_BLINDED is the stock blind treatment.
+	ScreenEffectState_SCREEN_EFFECT_STATE_BLINDED ScreenEffectState = 3
+	// SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER is Drifter's darkness view.
+	ScreenEffectState_SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER ScreenEffectState = 4
+	// SCREEN_EFFECT_STATE_MATCH_INTRO is the match start treatment.
+	ScreenEffectState_SCREEN_EFFECT_STATE_MATCH_INTRO ScreenEffectState = 5
+)
+
+// Enum value maps for ScreenEffectState.
+var (
+	ScreenEffectState_name = map[int32]string{
+		0: "SCREEN_EFFECT_STATE_KILLED",
+		1: "SCREEN_EFFECT_STATE_BLACK",
+		2: "SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM",
+		3: "SCREEN_EFFECT_STATE_BLINDED",
+		4: "SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER",
+		5: "SCREEN_EFFECT_STATE_MATCH_INTRO",
+	}
+	ScreenEffectState_value = map[string]int32{
+		"SCREEN_EFFECT_STATE_KILLED":                  0,
+		"SCREEN_EFFECT_STATE_BLACK":                   1,
+		"SCREEN_EFFECT_STATE_DOORMAN_HOTEL_VICTIM":    2,
+		"SCREEN_EFFECT_STATE_BLINDED":                 3,
+		"SCREEN_EFFECT_STATE_DRIFTER_DARKNESS_CASTER": 4,
+		"SCREEN_EFFECT_STATE_MATCH_INTRO":             5,
+	}
+)
+
+func (x ScreenEffectState) Enum() *ScreenEffectState {
+	p := new(ScreenEffectState)
+	*p = x
+	return p
+}
+
+func (x ScreenEffectState) String() string {
+	name, valid := ScreenEffectState_name[int32(x)]
+	if valid {
+		return name
+	}
+	return strconv.Itoa(int(x))
+}
 
 // HudTextMessage matches native CUserMessageTextMsg, message 124.
 type HudTextMessage struct {
@@ -96,6 +150,94 @@ func (x *HudAnnouncement) GetDialogVariableLocstring() []string {
 	return nil
 }
 
+// ScreenEffect matches Deadlock CCitadelUserMsg_PostProcessingAnim, message 332.
+// The client ignores the message unless entindex_owner names a live entity.
+// Each state keeps a list of running instances, so effects of one state stack.
+type ScreenEffect struct {
+	unknownFields []byte
+	// EntindexOwner is the entity the effect belongs to, normally the
+	// recipient's pawn.
+	EntindexOwner *int32 `protobuf:"varint,1,opt,name=entindex_owner,json=entindexOwner,def=-1" json:"entindexOwner,omitempty"`
+	// ClearAllStates ends every running instance of state instead of starting one.
+	ClearAllStates *bool `protobuf:"varint,2,opt,name=clear_all_states,json=clearAllStates" json:"clearAllStates,omitempty"`
+	// State selects the stock post-processing resource.
+	State *ScreenEffectState `protobuf:"varint,3,opt,name=state" json:"state,omitempty"`
+	// Delay, FadeInTime, HoldTime and FadeOutTime are seconds, applied in order.
+	Delay       *float32 `protobuf:"fixed32,4,opt,name=delay" json:"delay,omitempty"`
+	FadeInTime  *float32 `protobuf:"fixed32,5,opt,name=fade_in_time,json=fadeInTime" json:"fadeInTime,omitempty"`
+	HoldTime    *float32 `protobuf:"fixed32,6,opt,name=hold_time,json=holdTime" json:"holdTime,omitempty"`
+	FadeOutTime *float32 `protobuf:"fixed32,7,opt,name=fade_out_time,json=fadeOutTime" json:"fadeOutTime,omitempty"`
+	// Scale weights the effect; the client stores it with each instance.
+	Scale *float32 `protobuf:"fixed32,8,opt,name=scale" json:"scale,omitempty"`
+}
+
+// Default values for ScreenEffect fields.
+const (
+	Default_ScreenEffect_EntindexOwner = int32(-1)
+)
+
+func (x *ScreenEffect) Reset() {
+	*x = ScreenEffect{}
+}
+
+func (*ScreenEffect) ProtoMessage() {}
+
+func (x *ScreenEffect) GetEntindexOwner() int32 {
+	if x != nil && x.EntindexOwner != nil {
+		return *x.EntindexOwner
+	}
+	return Default_ScreenEffect_EntindexOwner
+}
+
+func (x *ScreenEffect) GetClearAllStates() bool {
+	if x != nil && x.ClearAllStates != nil {
+		return *x.ClearAllStates
+	}
+	return false
+}
+
+func (x *ScreenEffect) GetState() ScreenEffectState {
+	if x != nil && x.State != nil {
+		return *x.State
+	}
+	return ScreenEffectState_SCREEN_EFFECT_STATE_KILLED
+}
+
+func (x *ScreenEffect) GetDelay() float32 {
+	if x != nil && x.Delay != nil {
+		return *x.Delay
+	}
+	return 0
+}
+
+func (x *ScreenEffect) GetFadeInTime() float32 {
+	if x != nil && x.FadeInTime != nil {
+		return *x.FadeInTime
+	}
+	return 0
+}
+
+func (x *ScreenEffect) GetHoldTime() float32 {
+	if x != nil && x.HoldTime != nil {
+		return *x.HoldTime
+	}
+	return 0
+}
+
+func (x *ScreenEffect) GetFadeOutTime() float32 {
+	if x != nil && x.FadeOutTime != nil {
+		return *x.FadeOutTime
+	}
+	return 0
+}
+
+func (x *ScreenEffect) GetScale() float32 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (m *HudTextMessage) CloneVT() *HudTextMessage {
 	if m == nil {
 		return (*HudTextMessage)(nil)
@@ -130,6 +272,29 @@ func (m *HudAnnouncement) CloneVT() *HudAnnouncement {
 }
 
 func (m *HudAnnouncement) CloneMessageVT() protobuf_go_lite.CloneMessage {
+	return m.CloneVT()
+}
+
+func (m *ScreenEffect) CloneVT() *ScreenEffect {
+	if m == nil {
+		return (*ScreenEffect)(nil)
+	}
+	r := new(ScreenEffect)
+	r.EntindexOwner = protobuf_go_lite.ClonePtr(m.EntindexOwner)
+	r.ClearAllStates = protobuf_go_lite.ClonePtr(m.ClearAllStates)
+	r.State = protobuf_go_lite.ClonePtr(m.State)
+	r.Delay = protobuf_go_lite.ClonePtr(m.Delay)
+	r.FadeInTime = protobuf_go_lite.ClonePtr(m.FadeInTime)
+	r.HoldTime = protobuf_go_lite.ClonePtr(m.HoldTime)
+	r.FadeOutTime = protobuf_go_lite.ClonePtr(m.FadeOutTime)
+	r.Scale = protobuf_go_lite.ClonePtr(m.Scale)
+	if len(m.unknownFields) > 0 {
+		r.unknownFields = slices.Clone(m.unknownFields)
+	}
+	return r
+}
+
+func (m *ScreenEffect) CloneMessageVT() protobuf_go_lite.CloneMessage {
 	return m.CloneVT()
 }
 
@@ -181,6 +346,46 @@ func (this *HudAnnouncement) EqualVT(that *HudAnnouncement) bool {
 
 func (this *HudAnnouncement) EqualMessageVT(thatMsg any) bool {
 	that, ok := thatMsg.(*HudAnnouncement)
+	if !ok {
+		return false
+	}
+	return this.EqualVT(that)
+}
+func (this *ScreenEffect) EqualVT(that *ScreenEffect) bool {
+	if this == that {
+		return true
+	} else if this == nil || that == nil {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.EntindexOwner, that.EntindexOwner) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.ClearAllStates, that.ClearAllStates) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.State, that.State) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.Delay, that.Delay) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.FadeInTime, that.FadeInTime) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.HoldTime, that.HoldTime) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.FadeOutTime, that.FadeOutTime) {
+		return false
+	}
+	if !protobuf_go_lite.EqualPtr(this.Scale, that.Scale) {
+		return false
+	}
+	return string(this.unknownFields) == string(that.unknownFields)
+}
+
+func (this *ScreenEffect) EqualMessageVT(thatMsg any) bool {
+	that, ok := thatMsg.(*ScreenEffect)
 	if !ok {
 		return false
 	}
@@ -296,6 +501,78 @@ func (m *HudAnnouncement) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ScreenEffect) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ScreenEffect) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *ScreenEffect) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if m.Scale != nil {
+		i = protobuf_go_lite.EncodeFixed32(dAtA, i, uint32(math.Float32bits(float32(*m.Scale))))
+		i--
+		dAtA[i] = 0x45
+	}
+	if m.FadeOutTime != nil {
+		i = protobuf_go_lite.EncodeFixed32(dAtA, i, uint32(math.Float32bits(float32(*m.FadeOutTime))))
+		i--
+		dAtA[i] = 0x3d
+	}
+	if m.HoldTime != nil {
+		i = protobuf_go_lite.EncodeFixed32(dAtA, i, uint32(math.Float32bits(float32(*m.HoldTime))))
+		i--
+		dAtA[i] = 0x35
+	}
+	if m.FadeInTime != nil {
+		i = protobuf_go_lite.EncodeFixed32(dAtA, i, uint32(math.Float32bits(float32(*m.FadeInTime))))
+		i--
+		dAtA[i] = 0x2d
+	}
+	if m.Delay != nil {
+		i = protobuf_go_lite.EncodeFixed32(dAtA, i, uint32(math.Float32bits(float32(*m.Delay))))
+		i--
+		dAtA[i] = 0x25
+	}
+	if m.State != nil {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(*m.State))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.ClearAllStates != nil {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, *m.ClearAllStates)
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.EntindexOwner != nil {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(*m.EntindexOwner))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *HudTextMessage) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -323,6 +600,27 @@ func (m *HudAnnouncement) SizeVT() (n int) {
 	return n
 }
 
+func (m *ScreenEffect) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeVarintPtr(1, m.EntindexOwner)
+	n += protobuf_go_lite.SizeBoolPtr(1, m.ClearAllStates)
+	n += protobuf_go_lite.SizeVarintPtr(1, m.State)
+	n += protobuf_go_lite.SizeFixed32Ptr(1, m.Delay)
+	n += protobuf_go_lite.SizeFixed32Ptr(1, m.FadeInTime)
+	n += protobuf_go_lite.SizeFixed32Ptr(1, m.HoldTime)
+	n += protobuf_go_lite.SizeFixed32Ptr(1, m.FadeOutTime)
+	n += protobuf_go_lite.SizeFixed32Ptr(1, m.Scale)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (x ScreenEffectState) MarshalProtoText() string {
+	return x.String()
+}
 func (x *HudTextMessage) MarshalProtoText() string {
 	var sb protobuf_go_lite.TextBuilder
 	initialLen := protobuf_go_lite.TextStartMessage(&sb, "HudTextMessage")
@@ -383,6 +681,47 @@ func (x *HudAnnouncement) MarshalProtoText() string {
 }
 
 func (x *HudAnnouncement) String() string {
+	return x.MarshalProtoText()
+}
+func (x *ScreenEffect) MarshalProtoText() string {
+	var sb protobuf_go_lite.TextBuilder
+	initialLen := protobuf_go_lite.TextStartMessage(&sb, "ScreenEffect")
+	if x.EntindexOwner != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "entindex_owner")
+		protobuf_go_lite.TextWriteInt(&sb, *x.EntindexOwner)
+	}
+	if x.ClearAllStates != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "clear_all_states")
+		protobuf_go_lite.TextWriteBool(&sb, *x.ClearAllStates)
+	}
+	if x.State != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "state")
+		protobuf_go_lite.TextWriteStringer(&sb, x.State)
+	}
+	if x.Delay != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "delay")
+		protobuf_go_lite.TextWriteFloat32(&sb, *x.Delay)
+	}
+	if x.FadeInTime != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "fade_in_time")
+		protobuf_go_lite.TextWriteFloat32(&sb, *x.FadeInTime)
+	}
+	if x.HoldTime != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "hold_time")
+		protobuf_go_lite.TextWriteFloat32(&sb, *x.HoldTime)
+	}
+	if x.FadeOutTime != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "fade_out_time")
+		protobuf_go_lite.TextWriteFloat32(&sb, *x.FadeOutTime)
+	}
+	if x.Scale != nil {
+		protobuf_go_lite.TextWriteFieldPrefix(&sb, initialLen, "scale")
+		protobuf_go_lite.TextWriteFloat32(&sb, *x.Scale)
+	}
+	return protobuf_go_lite.TextFinishMessage(&sb)
+}
+
+func (x *ScreenEffect) String() string {
 	return x.MarshalProtoText()
 }
 func (m *HudTextMessage) UnmarshalVT(dAtA []byte) error {
@@ -517,6 +856,146 @@ func (m *HudAnnouncement) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			m.DialogVariableLocstring = append(m.DialogVariableLocstring, v)
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ScreenEffect) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ScreenEffect: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ScreenEffect: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EntindexOwner", wireType)
+			}
+			var v int32
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintInt32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.EntindexOwner = &v
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClearAllStates", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			b := bool(v)
+			m.ClearAllStates = &b
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			var v ScreenEffectState
+			var _v uint64
+			_v, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+			v = ScreenEffectState(_v)
+			if err != nil {
+				return err
+			}
+			m.State = &v
+		case 4:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Delay", wireType)
+			}
+			var v uint32
+			var _v32 uint32
+			_v32, iNdEx, err = protobuf_go_lite.DecodeFixed32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			v = uint32(_v32)
+			v2 := float32(math.Float32frombits(v))
+			m.Delay = &v2
+		case 5:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FadeInTime", wireType)
+			}
+			var v uint32
+			var _v32 uint32
+			_v32, iNdEx, err = protobuf_go_lite.DecodeFixed32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			v = uint32(_v32)
+			v2 := float32(math.Float32frombits(v))
+			m.FadeInTime = &v2
+		case 6:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HoldTime", wireType)
+			}
+			var v uint32
+			var _v32 uint32
+			_v32, iNdEx, err = protobuf_go_lite.DecodeFixed32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			v = uint32(_v32)
+			v2 := float32(math.Float32frombits(v))
+			m.HoldTime = &v2
+		case 7:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FadeOutTime", wireType)
+			}
+			var v uint32
+			var _v32 uint32
+			_v32, iNdEx, err = protobuf_go_lite.DecodeFixed32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			v = uint32(_v32)
+			v2 := float32(math.Float32frombits(v))
+			m.FadeOutTime = &v2
+		case 8:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scale", wireType)
+			}
+			var v uint32
+			var _v32 uint32
+			_v32, iNdEx, err = protobuf_go_lite.DecodeFixed32(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			v = uint32(_v32)
+			v2 := float32(math.Float32frombits(v))
+			m.Scale = &v2
 		default:
 			iNdEx = preIndex
 			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])

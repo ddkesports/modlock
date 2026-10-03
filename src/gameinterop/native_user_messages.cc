@@ -71,6 +71,29 @@ std::expected<void, std::string> NativeUserMessages::Announce(int32_t slot, std:
   return Send(slot, 363, message);
 }
 
+std::expected<void, std::string> NativeUserMessages::ScreenEffect(
+    int32_t slot, int32_t owner, engine::ScreenEffectState state,
+    const ScreenEffectTiming& timing) const {
+  engine::ScreenEffect message;
+  message.set_entindex_owner(owner);
+  message.set_state(state);
+  message.set_delay(timing.delay);
+  message.set_fade_in_time(timing.fade_in);
+  message.set_hold_time(timing.hold);
+  message.set_fade_out_time(timing.fade_out);
+  message.set_scale(timing.scale);
+  return Send(slot, 332, message);
+}
+
+std::expected<void, std::string> NativeUserMessages::ClearScreenEffect(
+    int32_t slot, int32_t owner, engine::ScreenEffectState state) const {
+  engine::ScreenEffect message;
+  message.set_entindex_owner(owner);
+  message.set_clear_all_states(true);
+  message.set_state(state);
+  return Send(slot, 332, message);
+}
+
 std::expected<void, std::string> NativeUserMessages::Send(
     int32_t slot, int32_t id, const google::protobuf::MessageLite& message) const {
   if (slot < 0 || slot >= 64) return std::unexpected("native user recipient slot is invalid");
