@@ -36,7 +36,7 @@ constexpr std::string_view kTogglePause =
 // CCitadelGameRules::BuildGameSessionManifest.
 constexpr std::string_view kManifestBuilder =
     "48 89 54 24 ?? 48 89 4C 24 ?? 55 53 56 57 41 54 41 55 41 56 41 57 "
-    "48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? ?? ?? ?? 4C 8B FA";
+    "48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 4C 8B 02 48 8D 0D ?? ?? ?? ?? 4C 8B F2";
 
 // The entries sort by id.
 constexpr std::array kSignatures = {
@@ -248,14 +248,14 @@ constexpr std::array kSignatures = {
         .id = "game-rules.precache-call",
         .pattern = kManifestBuilder,
         .target = kCall,
-        .delta = 0x394,
+        .delta = 0x342,
         .shape = "hero precache helper called by the manifest builder",
     },
     GameSignature{
         .id = "game-rules.precache-global",
         .pattern = kManifestBuilder,
         .target = kRipRelative,
-        .delta = 0x389,
+        .delta = 0x33b,
         .shape = "hero precache context loaded by the manifest builder",
     },
     GameSignature{
