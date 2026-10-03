@@ -44,9 +44,9 @@ using Source2MainFn = int (*)(void* hInstance, void* hPrevInstance, const char* 
 
 // RunEngine hands the process to the engine in the configured role. The game
 // modules must already be mapped by the host app (Windows only);
-// engine_bin_dir is the directory holding engine2.dll. The reference loader
-// proves this exact shape: it runs from that directory and passes it to
-// Source2Main as pszBaseDir, so the engine resolves citadel content from it.
+// engine_bin_dir is the directory holding engine2.dll, game/bin/win64. The
+// engine resolves citadel and core relative to pszBaseDir, so RunEngine passes
+// the game directory two levels up, as the stock launcher does.
 // Each precondition is checked in dependency order and a failure names the
 // aborted stage. Blocks until the engine exits and yields its exit code; an
 // error means the engine never started.

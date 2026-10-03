@@ -51,25 +51,25 @@ std::expected<int, std::string> RunEngine(const LaunchConfig& config,
     return std::unexpected(
         "stage entry-point: Source2Main export not found in the mapped engine2.dll");
   }
-  // Stage 3: render the staged command line. The engine locates the mod's
-  // gameinfo.gi through the -game directory argument (as stock dedicated
-  // servers do), not through the working directory.
-  const auto citadel_dir = engine_bin_dir.parent_path().parent_path() / "citadel";
+  // Stage 3: render the staged command line. The game directory, the parent
+  // of bin/win64, holds citadel and core; the -game argument names the mod
+  // directory inside it, as stock dedicated servers do.
+  const auto game_dir = engine_bin_dir.parent_path().parent_path();
   std::string command_line =
       config.connect.empty() ? BuildDedicatedCommandLine(config) : BuildClientCommandLine(config);
-  command_line += " -game \"" + citadel_dir.string() + "\"";
+  command_line += " -game \"" + (game_dir / "citadel").string() + "\"";
   if (!config.engine_arguments.empty()) command_line += " " + config.engine_arguments;
-  // Stage 4: the base directory must exist; the engine resolves citadel
+  // Stage 4: the game directory must exist; the engine resolves citadel
   // content relative to it.
-  if (!std::filesystem::directory_entry(engine_bin_dir).exists()) {
-    return std::unexpected("stage base-dir: directory does not exist: " + engine_bin_dir.string());
+  if (!std::filesystem::directory_entry(game_dir).exists()) {
+    return std::unexpected("stage base-dir: directory does not exist: " + game_dir.string());
   }
   // Stage 5: handoff. Blocking by design: Source2Main runs the server or
   // client frame loop until shutdown. A client owns a visible game window.
   const bool client = !config.connect.empty();
   const int code =
       source2_main(client ? ::GetModuleHandleW(nullptr) : nullptr, nullptr, command_line.c_str(),
-                   client ? SW_SHOWDEFAULT : 0, engine_bin_dir.string().c_str(), "citadel");
+                   client ? SW_SHOWDEFAULT : 0, game_dir.string().c_str(), "citadel");
   return code;
 #else
   (void)config;
