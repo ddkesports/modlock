@@ -5,8 +5,10 @@
 // Compiler and runtime macros are evaluated by each consumer's own toolchain.
 #define MODLOCK_STRINGIFY_IMPL(value) #value
 #define MODLOCK_STRINGIFY(value) MODLOCK_STRINGIFY_IMPL(value)
+// Clang keeps its C++ ABI within a major release, and distributions report
+// different patch versions for the same release, so only the major counts.
 #if defined(__clang__)
-#define MODLOCK_COMPILER_ABI "clang-" __clang_version__
+#define MODLOCK_COMPILER_ABI "clang-" MODLOCK_STRINGIFY(__clang_major__)
 #elif defined(_MSC_VER)
 #define MODLOCK_COMPILER_ABI "msvc-" MODLOCK_STRINGIFY(_MSC_FULL_VER)
 #elif defined(__GNUC__)
