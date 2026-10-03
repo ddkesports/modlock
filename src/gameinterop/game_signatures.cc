@@ -364,7 +364,7 @@ constexpr std::array kSignatures = {
     },
     GameSignature{
         .id = "projectile.contact",
-        .pattern = "40 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? 00 00 80 B9 ?? ?? "
+        .pattern = "40 55 56 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? 00 00 80 B9 ?? ?? "
                    "00 00 00",
         .shape = "projectile contact handler",
     },
