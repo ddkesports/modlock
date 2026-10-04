@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package modlock.wasm;
+
+option go_package = "github.com/paralin/modlock/proto/modlock/wasm;wasm";
+
+// Event is one engine event the host delivers to a WebAssembly mod through
+// its modlock_event export. A new event is a new body case.
+message Event {
+  // Body selects the event.
+  oneof body {
+    // Start begins the mod's active lifetime, once, before any other event.
+    StartEvent start = 1;
+
+    // Frame runs once per server frame while the mod asked for frames.
+    FrameEvent frame = 2;
+
+    // Command offers one console command a player typed.
+    CommandEvent command = 3;
+  }
+}
+
+// StartEvent describes the server the mod starts in.
+message StartEvent {
+  // Args holds the arguments that follow -- on the host command line.
+  repeated string args = 1;
+
+  // CheckOnly is true when the host checks the mod without starting a game;
+  // engine requests then fail.
+  bool check_only = 2;
+}
+
+// FrameEvent identifies one server frame.
+message FrameEvent {
+  // Tick is the server tick, or zero when the clock is unavailable.
+  uint64 tick = 1;
+
+  // TimeSeconds is the game clock at this frame, in seconds.
+  double time_seconds = 2;
+}
+
+// CommandEvent carries one console command line from a player.
+message CommandEvent {
+  // Slot identifies the player who typed the command.
+  int32 slot = 1;
+
+  // Line is the complete command line, starting with the command name.
+  string line = 2;
+}
+
+// EventResult is the mod's answer to one Event. An event with no answer
+// returns an empty result.
+message EventResult {
+  // Body carries the answer for the event case that asks for one.
+  oneof body {
+    // Start answers a StartEvent.
+    StartResult start = 1;
+
+    // Command answers a CommandEvent.
+    CommandResult command = 2;
+  }
+}
+
+// StartResult declares which events the mod consumes.
+message StartResult {
+  // Frames asks for a FrameEvent every server frame.
+  bool frames = 1;
+}
+
+// CommandResult answers whether the mod handled a command.
+message CommandResult {
+  // Claimed ends the command's dispatch; the game and later mods do not see it.
+  bool claimed = 1;
+}
+
+// HostRequest is one call from a mod to the host through modlock.host_call.
+// A new capability is a new body case.
+message HostRequest {
+  // Body selects the call.
+  oneof body {
+    // Log writes one line to the server log under the mod's name.
+    LogRequest log = 1;
+
+    // ServerCommand runs one line at the server console.
+    ServerCommandRequest server_command = 2;
+
+    // Chat sends server chat to one player.
+    ChatRequest chat = 3;
+
+    // CenterText shows text in the middle of one player's screen.
+    CenterTextRequest center_text = 4;
+  }
+}
+
+// LogRequest carries one log line.
+message LogRequest {
+  // Message is the text to log, without a trailing newline.
+  string message = 1;
+}
+
+// ServerCommandRequest carries one server console line.
+message ServerCommandRequest {
+  // Command is the console line, without a trailing newline.
+  string command = 1;
+}
+
+// ChatRequest addresses server chat to one player.
+message ChatRequest {
+  // Slot identifies the receiving player.
+  int32 slot = 1;
+
+  // Text is the chat line.
+  string text = 2;
+}
+
+// CenterTextRequest replaces one player's center text.
+message CenterTextRequest {
+  // Slot identifies the receiving player.
+  int32 slot = 1;
+
+  // Text is the text to show; empty text clears it.
+  string text = 2;
+}
+
+// HostResponse is the host's answer to one HostRequest.
+message HostResponse {
+  // Error describes why the call failed, or is empty on success.
+  string error = 1;
+}
