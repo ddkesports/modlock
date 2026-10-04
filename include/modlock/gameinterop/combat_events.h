@@ -14,14 +14,16 @@
 
 namespace modlock::gameinterop {
 
-// Native modifier-event IDs decoded by the combat observer.
-// The 0x1/0x2 broadcast ids are the same damage/heal facts delivered twice;
-// only the modifier-path ids are decoded, so no event is counted twice.
-inline constexpr uint32_t kCombatEventDamageTaken = 0x16;
-inline constexpr uint32_t kCombatEventPreDamageTaken = 0x15;
-inline constexpr uint32_t kCombatEventHealthTaken = 0x18;
-inline constexpr uint32_t kCombatEventAbilityExecuted = 0x22;
-inline constexpr uint32_t kCombatBroadcastShieldAbsorbed = 0x0d;
+// Native modifier-event IDs decoded by the combat observer, from the game's
+// EModifierEvent schema enum as of build 6711. Game updates renumber the
+// enum; compare these and MovementExecution with the schema dump after each
+// update. The 0x1/0x2 broadcast ids are the same damage/heal facts delivered
+// twice; only the modifier-path ids are decoded, so no event is counted twice.
+inline constexpr uint32_t kCombatEventPreDamageTaken = 0x17;
+inline constexpr uint32_t kCombatEventDamageTaken = 0x18;
+inline constexpr uint32_t kCombatEventHealthTaken = 0x1a;
+inline constexpr uint32_t kCombatEventAbilityExecuted = 0x25;
+inline constexpr uint32_t kCombatBroadcastShieldAbsorbed = 0x0f;
 
 // DamageTakenEvent carries the immutable values one native damage application
 // reported. health_lost is post-mitigation health damage; accounting clamps it
@@ -98,16 +100,16 @@ struct AbilityExecutedEvent {
 // while the engine owns its entity; consumers must match the full pawn handle.
 // Values are the game's modifier event identifiers.
 enum class MovementExecution : uint32_t {
-  kLandedOnGround = 0x32,
-  kAttachedToZipline = 0x33,
-  kGroundDash = 0x38,
-  kSlide = 0x3c,
-  kBouncePadActivated = 0x44,
-  kDashJump = 0x46,
-  kAirJump = 0x47,
-  kWallJump = 0x48,
-  kAirDash = 0x49,
-  kMeleeAttackStarted = 0x55,
+  kLandedOnGround = 0x35,
+  kAttachedToZipline = 0x36,
+  kGroundDash = 0x3b,
+  kSlide = 0x3f,
+  kBouncePadActivated = 0x47,
+  kDashJump = 0x49,
+  kAirJump = 0x4a,
+  kWallJump = 0x4b,
+  kAirDash = 0x4c,
+  kMeleeAttackStarted = 0x59,
 };
 
 struct MovementExecutedEvent {
