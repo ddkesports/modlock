@@ -15,7 +15,7 @@ message Event {
     // Frame runs once per server frame while the mod asked for frames.
     FrameEvent frame = 2;
 
-    // Command offers one console command a player typed.
+    // Command offers one command a player typed.
     CommandEvent command = 3;
   }
 }
@@ -39,7 +39,8 @@ message FrameEvent {
   double time_seconds = 2;
 }
 
-// CommandEvent carries one console command line from a player.
+// CommandEvent carries one command line from a player: a chat line that starts
+// with a slash, without the slash, or a console command the server received.
 message CommandEvent {
   // Slot identifies the player who typed the command.
   int32 slot = 1;

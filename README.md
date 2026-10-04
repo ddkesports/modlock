@@ -47,7 +47,7 @@ func main() {}
 ## Writing a mod in Go
 
 A Go mod registers its handlers in `init`. [`examples/hello-go`](examples/hello-go)
-answers the `hello` console command and logs the first server frame. Build it
+answers `/hello` in chat and logs the first server frame. Build it
 with Go 1.24 or newer:
 
 ```sh
@@ -60,7 +60,7 @@ The [`mod`](mod) package offers:
 
 | Call | Effect |
 | --- | --- |
-| `mod.Command(name, handler)` | Run `handler` when a player types the console command `name`. The command does not reach the game. |
+| `mod.Command(name, handler)` | Run `handler` when a player types `/name` in chat. |
 | `mod.OnFrame(handler)` | Run `handler` once per server frame. |
 | `mod.OnStart(handler)` | Run `handler` when the server starts the mod, with the arguments after `--`. |
 | `mod.Log(...)` | Write a line to the server log under the mod's name. |

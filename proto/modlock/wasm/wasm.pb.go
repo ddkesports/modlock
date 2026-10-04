@@ -75,7 +75,7 @@ type Event_Frame struct {
 }
 
 type Event_Command struct {
-	// Command offers one console command a player typed.
+	// Command offers one command a player typed.
 	Command *CommandEvent `protobuf:"bytes,3,opt,name=command,proto3,oneof"`
 }
 
@@ -144,7 +144,8 @@ func (x *FrameEvent) GetTimeSeconds() float64 {
 	return 0
 }
 
-// CommandEvent carries one console command line from a player.
+// CommandEvent carries one command line from a player: a chat line that starts
+// with a slash, without the slash, or a console command the server received.
 type CommandEvent struct {
 	unknownFields []byte
 	// Slot identifies the player who typed the command.

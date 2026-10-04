@@ -83,6 +83,9 @@ class MODLOCK_API EngineHost {
 
  private:
   std::expected<void, std::string> EnsureWorldHook();
+  // EnsureConnectionHook installs the tracker that chat and command hooks
+  // consult to admit only connected players.
+  std::expected<void, std::string> EnsureConnectionHook();
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

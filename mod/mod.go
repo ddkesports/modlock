@@ -51,8 +51,8 @@ type handlers struct {
 // registered is the mod's single set of handlers.
 var registered = &handlers{commands: map[string]func(Player, string){}}
 
-// Command calls handler when a player types the console command name. The
-// handler receives the text after the name, trimmed of surrounding spaces.
+// Command calls handler when a player types /name in chat. The handler
+// receives the text after the name, trimmed of surrounding spaces.
 // Registering a name again replaces its handler.
 func Command(name string, handler func(p Player, args string)) {
 	registered.commands[name] = handler

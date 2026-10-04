@@ -71,7 +71,8 @@ export const FrameEvent: MessageType<FrameEvent> = /* @__PURE__ */ createMessage
 });
 
 /**
- * CommandEvent carries one console command line from a player.
+ * CommandEvent carries one command line from a player: a chat line that starts
+ * with a slash, without the slash, or a console command the server received.
  *
  * @generated from message modlock.wasm.CommandEvent
  */
@@ -134,7 +135,7 @@ export interface Event {
     case: "frame";
   } | {
     /**
-     * Command offers one console command a player typed.
+     * Command offers one command a player typed.
      *
      * @generated from field: modlock.wasm.CommandEvent command = 3;
      */

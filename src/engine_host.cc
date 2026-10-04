@@ -163,6 +163,7 @@ std::expected<Subscription, std::string> EngineHost::OnFrame(std::function<void(
 
 std::expected<Subscription, std::string> EngineHost::OnChat(
     gameinterop::NativeChatHook::Handler callback) {
+  if (auto tracked = EnsureConnectionHook(); !tracked) return std::unexpected(tracked.error());
   if (!impl_->chat_hook) {
     auto hook = gameinterop::NativeChatHook::Install(
         [this](int32_t slot, std::string_view text) { impl_->chats.Dispatch(slot, text); });
@@ -174,6 +175,7 @@ std::expected<Subscription, std::string> EngineHost::OnChat(
 
 std::expected<Subscription, std::string> EngineHost::OnCommand(
     std::function<bool(int32_t, std::string_view)> callback) {
+  if (auto tracked = EnsureConnectionHook(); !tracked) return std::unexpected(tracked.error());
   if (!impl_->command_hook) {
     auto hook =
         gameinterop::ClientCommandHook::Install([this](int32_t slot, std::string_view text) {
@@ -210,11 +212,7 @@ std::expected<Subscription, std::string> EngineHost::OnCombat(
 std::expected<Subscription, std::string> EngineHost::OnConnection(
     std::shared_ptr<gameinterop::ConnectionEventSink> sink) {
   if (!sink) return std::unexpected("connection subscriber is null");
-  if (!impl_->connection_hook) {
-    auto hook = gameinterop::ConnectionTracker::Install(impl_->connections);
-    if (!hook) return std::unexpected(hook.error());
-    impl_->connection_hook.emplace(std::move(*hook));
-  }
+  if (auto tracked = EnsureConnectionHook(); !tracked) return std::unexpected(tracked.error());
   auto subscription = impl_->connections->connected.Add(
       [sink](int32_t slot, uint64_t xuid, bool bot, const char* name) {
         sink->OnConnected(slot, xuid, bot, name);
@@ -222,6 +220,15 @@ std::expected<Subscription, std::string> EngineHost::OnConnection(
   subscription.Add(impl_->connections->disconnecting.Add(
       [sink](int32_t slot, uint64_t xuid) { sink->OnDisconnecting(slot, xuid); }));
   return subscription;
+}
+
+std::expected<void, std::string> EngineHost::EnsureConnectionHook() {
+  if (!impl_->connection_hook) {
+    auto hook = gameinterop::ConnectionTracker::Install(impl_->connections);
+    if (!hook) return std::unexpected(hook.error());
+    impl_->connection_hook.emplace(std::move(*hook));
+  }
+  return {};
 }
 
 std::expected<void, std::string> EngineHost::EnsureWorldHook() {

@@ -16,8 +16,10 @@ namespace modlock {
 namespace {
 
 // WasmPlugin connects one sandboxed mod to the engine. Frames arrive through
-// Tick and player commands through an OnCommand subscription; both run on the
-// engine thread, as do the mod's host calls.
+// Tick. Player commands arrive as chat lines that start with a slash and as
+// console commands the server receives; the game client rejects console
+// commands it does not know, so chat is how players reach a mod. All of them
+// run on the engine thread, as do the mod's host calls.
 class WasmPlugin final : public Plugin {
  public:
   WasmPlugin(std::string name, const PluginContext& context)
@@ -39,6 +41,8 @@ class WasmPlugin final : public Plugin {
 
  private:
   std::optional<wasm::EventResult> Deliver(const wasm::Event& event);
+  void ListenToPlayers();
+  void Unsubscribe();
   bool Command(int32_t slot, std::string_view line);
   std::expected<void, std::string> ServerCommand(const std::string& command);
   std::expected<const gameinterop::NativeUserMessages*, std::string> Messages();
@@ -53,7 +57,10 @@ class WasmPlugin final : public Plugin {
   bool frames_ = false;
   std::optional<gameinterop::EngineServer> server_;
   std::optional<gameinterop::NativeUserMessages> messages_;
-  Subscription commands_;
+  // subscriptions_ holds the mod's engine callbacks; players_ is true once
+  // they include player commands.
+  Subscription subscriptions_;
+  bool players_ = false;
 };
 
 bool WasmPlugin::Start() {
@@ -67,14 +74,12 @@ bool WasmPlugin::Start() {
   frames_ = result->start().frames();
   if (check_only_) return true;
 
-  // Offer the mod every player command.
-  auto commands = engine_->OnCommand(
-      [this](int32_t slot, std::string_view line) { return Command(slot, line); });
-  if (!commands) {
-    std::cerr << name_ << ": player commands are unavailable: " << commands.error() << '\n';
-    return true;
+  // Player commands need the network system, which loads with the first world.
+  if (auto world = engine_->OnWorld(nullptr, [this](std::string_view) { ListenToPlayers(); })) {
+    subscriptions_.Add(std::move(*world));
+  } else {
+    std::cerr << name_ << ": player commands are unavailable: " << world.error() << '\n';
   }
-  commands_ = std::move(*commands);
   return true;
 }
 
@@ -97,8 +102,36 @@ void WasmPlugin::Tick() {
 }
 
 void WasmPlugin::Stop() {
-  commands_.Reset();
+  Unsubscribe();
   instance_.reset();
+}
+
+void WasmPlugin::ListenToPlayers() {
+  if (players_ || !instance_) return;
+
+  // Offer the mod every player command: "/hello there" in chat arrives as
+  // "hello there", as does the console command of the same line.
+  auto chats = engine_->OnChat([this](int32_t slot, std::string_view text) {
+    if (text.starts_with('/')) Command(slot, text.substr(1));
+  });
+  if (!chats) {
+    std::cerr << name_ << ": player commands are unavailable: " << chats.error() << '\n';
+    return;
+  }
+  subscriptions_.Add(std::move(*chats));
+  players_ = true;
+  if (auto commands = engine_->OnCommand(
+          [this](int32_t slot, std::string_view line) { return Command(slot, line); })) {
+    subscriptions_.Add(std::move(*commands));
+  } else {
+    std::cerr << name_ << ": console commands are unavailable: " << commands.error() << '\n';
+  }
+  std::cerr << name_ << ": player commands ready\n";
+}
+
+void WasmPlugin::Unsubscribe() {
+  subscriptions_.Reset();
+  players_ = false;
 }
 
 std::optional<wasm::EventResult> WasmPlugin::Deliver(const wasm::Event& event) {
@@ -109,7 +142,7 @@ std::optional<wasm::EventResult> WasmPlugin::Deliver(const wasm::Event& event) {
   // A failed mod stops alone; a refused nested event leaves it running.
   if (instance_->Failure()) {
     std::cerr << name_ << ": stopped: " << result.error() << '\n';
-    commands_.Reset();
+    Unsubscribe();
     instance_.reset();
   }
   return std::nullopt;
