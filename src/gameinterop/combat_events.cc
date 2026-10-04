@@ -79,12 +79,15 @@ constexpr std::array<std::pair<std::string_view, MovementExecution>, 10> kMoveme
 // offsets are set once at install; the decoded event is per call.
 // EventIds are the running game's EModifierEvent values, resolved by name at
 // install; the thunk dispatches on these, never on the framework's constants.
+// An id the running game does not name stays kUnobservedEvent, which no
+// EModifierEvent value reaches, so only that event goes unobserved.
+constexpr uint32_t kUnobservedEvent = UINT32_MAX;
 struct EventIds {
-  uint32_t pre_damage = 0;
-  uint32_t damage = 0;
-  uint32_t health = 0;
-  uint32_t ability = 0;
-  uint32_t shield_broadcast = 0;
+  uint32_t pre_damage = kUnobservedEvent;
+  uint32_t damage = kUnobservedEvent;
+  uint32_t health = kUnobservedEvent;
+  uint32_t ability = kUnobservedEvent;
+  uint32_t shield_broadcast = kUnobservedEvent;
   std::array<std::pair<uint32_t, MovementExecution>, kMovementEventNames.size()> movement{};
 };
 EventIds g_ids;
@@ -419,25 +422,22 @@ std::expected<CombatEventsHook, std::string> CombatEventsHook::Install(
   if (!broadcast) return std::unexpected(broadcast.error());
 
   // Game updates renumber EModifierEvent, so every id is read by name from
-  // the running server module.
-  EventIds ids;
-  const std::pair<const char*, uint32_t*> named[] = {
-      {"MODIFIER_EVENT_PRE_DAMAGE_TAKEN", &ids.pre_damage},
-      {"MODIFIER_EVENT_DAMAGE_TAKEN", &ids.damage},
-      {"MODIFIER_EVENT_HEALTH_TAKEN", &ids.health},
-      {"MODIFIER_EVENT_ABILITY_EXECUTED", &ids.ability},
-      {"MODIFIER_EVENT_UNIT_SHIELD_ABSORBED_DAMAGE_BROADCAST", &ids.shield_broadcast},
-  };
-  for (const auto& [name, slot] : named) {
+  // the running server module. A name the game no longer has disables only
+  // that event.
+  const auto resolve = [&server](std::string_view name) {
     auto id = ModifierEventIndex(server, name);
-    if (!id) return std::unexpected(id.error());
-    *slot = *id;
-  }
-  for (size_t i = 0; i < kMovementEventNames.size(); ++i) {
-    auto id = ModifierEventIndex(server, kMovementEventNames[i].first);
-    if (!id) return std::unexpected(id.error());
-    ids.movement[i] = {*id, kMovementEventNames[i].second};
-  }
+    if (id) return *id;
+    std::fprintf(stderr, "[modlock] combat events: %s; it is not observed\n", id.error().c_str());
+    return kUnobservedEvent;
+  };
+  EventIds ids;
+  ids.pre_damage = resolve("MODIFIER_EVENT_PRE_DAMAGE_TAKEN");
+  ids.damage = resolve("MODIFIER_EVENT_DAMAGE_TAKEN");
+  ids.health = resolve("MODIFIER_EVENT_HEALTH_TAKEN");
+  ids.ability = resolve("MODIFIER_EVENT_ABILITY_EXECUTED");
+  ids.shield_broadcast = resolve("MODIFIER_EVENT_UNIT_SHIELD_ABSORBED_DAMAGE_BROADCAST");
+  for (size_t i = 0; i < kMovementEventNames.size(); ++i)
+    ids.movement[i] = {resolve(kMovementEventNames[i].first), kMovementEventNames[i].second};
 
   // The result fields are schema-resolved at runtime; no offset is invented.
   DamageResultOffsets offsets{};
