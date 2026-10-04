@@ -71,7 +71,7 @@ bool WasmPlugin::Start() {
   auto commands = engine_->OnCommand(
       [this](int32_t slot, std::string_view line) { return Command(slot, line); });
   if (!commands) {
-    std::cout << name_ << ": player commands are unavailable: " << commands.error() << '\n';
+    std::cerr << name_ << ": player commands are unavailable: " << commands.error() << '\n';
     return true;
   }
   commands_ = std::move(*commands);
@@ -108,7 +108,7 @@ std::optional<wasm::EventResult> WasmPlugin::Deliver(const wasm::Event& event) {
 
   // A failed mod stops alone; a refused nested event leaves it running.
   if (instance_->Failure()) {
-    std::cout << name_ << ": stopped: " << result.error() << '\n';
+    std::cerr << name_ << ": stopped: " << result.error() << '\n';
     commands_.Reset();
     instance_.reset();
   }
@@ -128,7 +128,7 @@ wasm::HostResponse WasmPlugin::Call(const wasm::HostRequest& request) {
   std::expected<void, std::string> done;
   switch (request.body_case()) {
     case wasm::HostRequest::kLog:
-      std::cout << name_ << ": " << request.log().message() << '\n';
+      std::cerr << name_ << ": " << request.log().message() << '\n';
       break;
     case wasm::HostRequest::kServerCommand:
       done = ServerCommand(request.server_command().command());
@@ -155,7 +155,7 @@ wasm::HostResponse WasmPlugin::Call(const wasm::HostRequest& request) {
   // Report a failed call to the mod and in the server log.
   wasm::HostResponse response;
   if (!done) {
-    std::cout << name_ << ": " << done.error() << '\n';
+    std::cerr << name_ << ": " << done.error() << '\n';
     response.set_error(done.error());
   }
   return response;
