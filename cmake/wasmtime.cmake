@@ -57,5 +57,5 @@ else()
   set(MODLOCK_WASMTIME_LIBRARY ${wasmtime_dir}/lib/libwasmtime.so)
   set_target_properties(wasmtime::wasmtime PROPERTIES
     IMPORTED_LOCATION ${MODLOCK_WASMTIME_LIBRARY}
-    IMPORTED_SONAME libwasmtime.so)
+    IMPORTED_NO_SONAME TRUE)
 endif()
