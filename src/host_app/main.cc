@@ -11,13 +11,15 @@
 #include "modlock/host.h"
 #include "modlock/host_app/stdio_guard.h"
 #include "modlock/plugin_library.h"
+#include "modlock/wasm_plugin.h"
 
 namespace {
 
 void Help() {
-  std::cout << "Modlock hosts native Deadlock plugins.\n\n"
+  std::cout << "Modlock hosts Deadlock mods: sandboxed WebAssembly modules and native plugins.\n\n"
                "Usage: modlock-host --plugin PATH [options] [-- plugin arguments]\n\n"
-               "  --plugin PATH       Load a plugin library; may be repeated\n"
+               "  --plugin PATH       Load a WebAssembly mod (.wasm) or a plugin library; may\n"
+               "                      be repeated\n"
                "  --game-dir PATH     Deadlock installation (or DEADLOCK_DIR)\n"
                "  --hostport PORT     Server UDP port (default 27067)\n"
                "  --map NAME          Startup map (default dl_midtown)\n"
@@ -142,7 +144,9 @@ int main(int argc, char** argv) {
                                        .check_only = check_only,
                                        .launch = &launch};
   for (const auto& library : libraries) {
-    auto plugin = modlock::LoadPluginLibrary(std::filesystem::absolute(library), context);
+    const auto path = std::filesystem::absolute(library);
+    auto plugin = path.extension() == ".wasm" ? modlock::LoadWasmPlugin(path, context)
+                                              : modlock::LoadPluginLibrary(path, context);
     if (!plugin) {
       std::cerr << plugin.error() << '\n';
       return 1;

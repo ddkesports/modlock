@@ -1,24 +1,96 @@
 # Modlock
 
-**Modlock** is a native C++ modding framework for [Deadlock]. It runs the game
-server or client inside its own host process, gives plugins typed access to the
-engine, and loads plugins through a versioned C ABI. It is written in C++23 and
-has no managed runtime.
+**Modlock** is the best tool for hand-writing the logic of [Deadlock] custom
+game modes. You write a mod in a high-level language, Modlock compiles it to
+WebAssembly, and the game server runs it in a secure sandbox. Every mod speaks
+to the game through one common protobuf schema, so each language sees the same
+events and calls. Mods deploy to [hyperline.gg], the default backend and
+marketplace for custom games.
 
 [Deadlock]: https://store.steampowered.com/app/1422450/Deadlock/
+[hyperline.gg]: https://hyperline.gg
 
-Modlock finds engine functions, installs the native hooks, and calls plugins on
-the engine thread. Plugins contain the mod itself: gameplay rules, content, and
-match results.
+```go
+package main
+
+import "github.com/paralin/modlock/mod"
+
+func init() {
+	mod.Command("hello", func(p mod.Player, args string) {
+		p.Chat("Hello from Go!")
+	})
+}
+
+func main() {}
+```
 
 > **Early development.** APIs change without notice. There are no prebuilt
-> binaries, so build from source.
+> binaries, so build from source. Go mods work today; TypeScript, JavaScript,
+> Lua and Python, the `modlock` command line and `modlock publish` are next.
 
-## Features
+## Why WebAssembly
+
+- **Safe to share.** A mod runs in a [Wasmtime] sandbox inside the server. It
+  has no files, network or environment, only the calls the schema offers. A
+  crash, an endless loop or a runaway allocation stops that mod with a log line
+  and leaves the match running.
+- **Any language.** Anything that compiles to WebAssembly can be a mod. Each
+  language gets a small library over the generated protobuf types.
+- **Built once.** A mod is a portable `.wasm` file. It does not depend on the
+  compiler or source revision of the server that runs it.
+- **Fast.** Wasmtime compiles mods to machine code with Cranelift, and the
+  server calls them in the game frame, so a mod can decide whether to claim a
+  command or change a frame as it happens.
+
+[Wasmtime]: https://wasmtime.dev
+
+## Writing a mod in Go
+
+A Go mod registers its handlers in `init`. [`examples/hello-go`](examples/hello-go)
+answers the `hello` console command and logs the first server frame. Build it
+with Go 1.24 or newer:
+
+```sh
+GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o hello.wasm ./examples/hello-go
+modlock-host --check-plugin --plugin hello.wasm
+modlock-host --game-dir <Deadlock installation> --plugin hello.wasm
+```
+
+The [`mod`](mod) package offers:
+
+| Call | Effect |
+| --- | --- |
+| `mod.Command(name, handler)` | Run `handler` when a player types the console command `name`. The command does not reach the game. |
+| `mod.OnFrame(handler)` | Run `handler` once per server frame. |
+| `mod.OnStart(handler)` | Run `handler` when the server starts the mod, with the arguments after `--`. |
+| `mod.Log(...)` | Write a line to the server log under the mod's name. |
+| `mod.ServerCommand(line)` | Run a line at the server console. |
+| `player.Chat(text)` | Send server chat to one player. |
+| `player.CenterText(text)` | Show text in the middle of one player's screen. |
+
+## How mods reach the game
+
+A mod is a WASI preview 1 reactor module. It imports two functions and exports
+one:
+
+| Name | Direction | Meaning |
+| --- | --- | --- |
+| `modlock.host_call(ptr, len) -> len` | mod to host | Hand the host an encoded `HostRequest`; returns the length of the encoded `HostResponse`. |
+| `modlock.host_read(ptr, len)` | mod to host | Copy the host's pending message, an `Event` or a `HostResponse`, into mod memory. |
+| `modlock_event(len) -> i64` | host to mod | Deliver an `Event` of `len` bytes, which the mod copies with `host_read`. Returns the address and length of the encoded `EventResult`, packed as `address << 32 \| length`, or zero. |
+
+The messages are in [`proto/modlock/wasm.proto`](proto/modlock/wasm.proto). A
+new capability is a new case in a `oneof`; the functions never change. Each
+event runs within a time budget, and each mod has a memory limit.
+
+## The framework
+
+The WebAssembly host is built on Modlock's C++ framework, which also serves
+[native plugins](#native-plugins):
 
 - **Plugin host.** `modlock-host` launches a listen server or a client, loads
-  plugins, and runs them through a fixed `Load`, `Start`, `Tick`, `Stop`
-  lifecycle.
+  mods and plugins, and runs them through a fixed `Load`, `Start`, `Tick`,
+  `Stop` lifecycle.
 - **Engine events.** Subscribe to frames, chat, console commands, combat and
   damage, connections, respawns, and world start and end through
   `modlock::EngineHost`.
@@ -30,17 +102,17 @@ match results.
   against the game binaries after an update.
 - **Session content.** Precache heroes and resources into the session manifest
   and advertise content addons to connecting clients.
-- **Protocols.** Protobuf messages for HUD text, announcements, chat, stamina,
-  and camera paths, generated for C++, Go, and TypeScript.
-- **Portable tests.** Parsing, dispatch, and fixture tests run on macOS and
-  Linux without the game.
+- **Protocols.** Protobuf messages for mods, HUD text, announcements, chat,
+  stamina, and camera paths, generated for C++, Go, and TypeScript.
+- **Portable tests.** Parsing, dispatch, sandbox, and fixture tests run on macOS
+  and Linux without the game.
 
 The game runtime is Windows x64, including Windows builds under Proton.
 
 ## Building
 
 Requirements: Go (the version in `go.mod`), CMake 3.24 or newer, and a C++23
-compiler.
+compiler. The tests build the Go example mod, so they also need Go.
 
 ```sh
 git submodule update --init --recursive
@@ -56,6 +128,10 @@ cmake --install build --prefix "$PWD/build/sdk"
 Protobuf and abseil take a long time to build. Use half the cores, as shown, so
 the build leaves the machine usable.
 
+CMake downloads the [Wasmtime C API](https://docs.wasmtime.dev/c-api/) release
+for the target platform. Pass `-DMODLOCK_WASMTIME_DIR=<extracted release>` to
+build offline. Install puts the Wasmtime library next to `modlock-host`.
+
 - **Windows:** run `scripts/win-build.ps1` from a Visual Studio developer shell.
 - **macOS or Linux, targeting Windows:** `scripts/proton-build.sh` cross-builds
   the Windows SDK with Zig.
@@ -63,9 +139,11 @@ the build leaves the machine usable.
 To build from a source archive without `.git`, pass its commit with
 `-DMODLOCK_REVISION=<40-character SHA>`.
 
-## Writing a plugin
+## Native plugins
 
-The installed SDK exports `modlock::sdk` through CMake:
+Native C++ plugins extend the host itself: new engine hooks, new host calls for
+mods, and framework features. They have full access to the game process and
+none of the sandbox's protection. The installed SDK exports `modlock::sdk` through CMake:
 
 ```cmake
 find_package(Modlock CONFIG REQUIRED)
@@ -125,7 +203,7 @@ modlock-host --game-dir <Deadlock installation> --plugin <hello library>
 
 | Option | Effect |
 | --- | --- |
-| `--plugin PATH` | Load a plugin library; repeat for several. |
+| `--plugin PATH` | Load a WebAssembly mod (`.wasm`) or a plugin library; repeat for several. |
 | `--check-plugin` | Load, start, and stop the plugins without opening game modules. |
 | `--game-dir DIR` | Run a listen server from the Deadlock installation at `DIR` (or `DEADLOCK_DIR`). |
 | `--map NAME` | Start on `NAME` (default `dl_midtown`). |

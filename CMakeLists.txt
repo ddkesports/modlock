@@ -85,7 +85,7 @@ target_include_directories(utf8_range PUBLIC
   $<BUILD_INTERFACE:${MODLOCK_PROTOBUF_DIR}/third_party/utf8_range>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 add_subdirectory(${MODLOCK_PROTOBUF_DIR} build-deps/protobuf)
-
+include(cmake/wasmtime.cmake)
 
 add_library(modlock_sdk SHARED
   src/camera/camera_path.cc
@@ -134,11 +134,14 @@ add_library(modlock_sdk SHARED
   src/net/listen_boot.cc
   src/render/world_effect_game_factory.cc
   src/render/world_text_game_factory.cc
+  src/wasm/instance.cc
+  src/wasm/wasm_plugin.cc
   proto/modlock/camera.pb.cc
   proto/modlock/chat.pb.cc
   proto/modlock/hud.pb.cc
   proto/modlock/stamina_consumed.pb.cc
   proto/modlock/types.pb.cc
+  proto/modlock/wasm.pb.cc
 )
 add_library(modlock::sdk ALIAS modlock_sdk)
 if(MINGW)
@@ -155,7 +158,7 @@ target_include_directories(modlock_sdk PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(modlock_sdk PUBLIC protobuf::libprotobuf)
+target_link_libraries(modlock_sdk PUBLIC protobuf::libprotobuf PRIVATE wasmtime::wasmtime)
 target_compile_features(modlock_sdk PUBLIC cxx_std_23)
 target_compile_definitions(modlock_sdk PRIVATE MODLOCK_BUILDING_SDK)
 if(MSVC)
@@ -184,6 +187,11 @@ target_link_libraries(modlock_sdk PRIVATE ${CMAKE_DL_LIBS})
 add_executable(modlock-host src/host_app/main.cc)
 target_link_libraries(modlock-host PRIVATE modlock::sdk)
 install(TARGETS modlock-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(WIN32)
+  install(FILES ${MODLOCK_WASMTIME_LIBRARY} DESTINATION ${CMAKE_INSTALL_BINDIR})
+else()
+  install(FILES ${MODLOCK_WASMTIME_LIBRARY} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
 
 # modlock-sigcheck checks the recorded signatures against game binaries on
 # disk; it runs on any host, so it carries its own copy of the decoder.
@@ -318,6 +326,21 @@ if(BUILD_TESTING)
   add_executable(world_effect_game_factory_test tests/world_effect_game_factory_test.cc)
   target_link_libraries(world_effect_game_factory_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME world_effect_game_factory_test COMMAND world_effect_game_factory_test)
+  # wasm_instance_test runs the Go example mod, so it builds it with Go.
+  set(hello_go_wasm ${CMAKE_CURRENT_BINARY_DIR}/hello-go.wasm)
+  file(GLOB hello_go_sources CONFIGURE_DEPENDS mod/*.go examples/hello-go/*.go proto/modlock/wasm/*.go)
+  add_custom_command(OUTPUT ${hello_go_wasm}
+    COMMAND ${CMAKE_COMMAND} -E env GOOS=wasip1 GOARCH=wasm
+      ${GO_EXECUTABLE} build -buildmode=c-shared -o ${hello_go_wasm} ./examples/hello-go
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS ${hello_go_sources} go.mod)
+  add_custom_target(hello_go_wasm DEPENDS ${hello_go_wasm})
+  add_executable(wasm_instance_test tests/wasm_instance_test.cc src/wasm/instance.cc)
+  add_dependencies(wasm_instance_test hello_go_wasm)
+  target_include_directories(wasm_instance_test PRIVATE src)
+  target_compile_definitions(wasm_instance_test PRIVATE HELLO_GO_WASM="${hello_go_wasm}")
+  target_link_libraries(wasm_instance_test PRIVATE modlock::sdk wasmtime::wasmtime gtest_main)
+  add_test(NAME wasm_instance_test COMMAND wasm_instance_test)
   add_executable(world_text_game_factory_test tests/world_text_game_factory_test.cc)
   target_link_libraries(world_text_game_factory_test PRIVATE modlock::sdk gtest_main)
   add_test(NAME world_text_game_factory_test COMMAND world_text_game_factory_test)
